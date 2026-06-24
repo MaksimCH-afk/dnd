@@ -17,7 +17,9 @@ import {
 	pickNextArc,
 	beginArc,
 	migrate,
+	resolveExchange,
 	SCHEMA_VERSION,
+	type CombatStyle,
 	type GameState,
 	type Op,
 	type ApplyResult
@@ -207,6 +209,44 @@ export function newGame(): GameState {
 	game.state = state;
 	void persist();
 	return state;
+}
+
+function parseStyle(text: string): { style: CombatStyle; flee: boolean } {
+	const t = text.toLowerCase();
+	const flee = /бег|сбеж|отступ|удира|уход/.test(t);
+	let style: CombatStyle = 'обычный';
+	if (/агресс|натиск|дав/.test(t)) style = 'агрессивный';
+	else if (/безрассуд|ва-?банк|отчаян/.test(t)) style = 'безрассудный';
+	else if (/оборон|защищ|осторож|парир/.test(t)) style = 'оборонительный';
+	else if (/только защит|глух/.test(t)) style = 'только защита';
+	return { style, flee };
+}
+
+export interface CombatOutcome {
+	cues: string[];
+	ended: boolean;
+	victory: boolean;
+	heroDown: boolean;
+}
+
+/** Разрешить боевой обмен по намерению игрока (если идёт бой). null — боя нет. */
+export async function resolveCombat(playerText: string): Promise<CombatOutcome | null> {
+	if (!game.state?.combat) return null;
+	const { style, flee } = parseStyle(playerText);
+	const rng = makeRng(seedFromString(`combat|${game.state.session.day}|${game.state.combat.round}|${playerText.length}`));
+	const r = resolveExchange($state.snapshot(game.state), game.state.combat, { style, flee }, rng);
+
+	// Применяем урон/выносливость через движок (журналируется, клампится).
+	const ops: Op[] = [];
+	if (r.heroHpDelta) ops.push({ op: 'hp.change', delta: r.heroHpDelta, reason: 'бой' });
+	if (r.staminaDelta) ops.push({ op: 'stamina.change', delta: r.staminaDelta, reason: 'бой' });
+	if (ops.length) {
+		const applied = engineApply($state.snapshot(game.state), ops, { day: game.state.session.day });
+		game.state = applied.state;
+	}
+	game.state.combat = r.ended ? (undefined as never) : r.encounter;
+	await persist();
+	return { cues: r.cues, ended: r.ended, victory: r.victory, heroDown: r.heroDown };
 }
 
 /** Проверить и развернуть сработавшие seeds на текущий день (каждый ход). */

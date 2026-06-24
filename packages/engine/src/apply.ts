@@ -13,6 +13,8 @@ import type { Op, OpName } from './ops';
 import { OP_MODULE_REQUIREMENT } from './ops';
 import type { Contract, GameState, InventoryItem, ModuleName, NpcCore } from './state';
 import { tierFromHidden } from './reputation';
+import { startEncounter } from './encounter';
+import { makeRng } from './rng';
 
 export interface ApplyContext {
 	/** Текущий игровой день (для acquired_day/journal). */
@@ -432,6 +434,23 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 				}
 				const [fired] = state.timers.splice(idx, 1);
 				ok(op, `таймер сработал: ${fired!.label}`);
+				break;
+			}
+
+			case 'combat.start': {
+				if (!op.enemies?.length) {
+					reject(op, 'combat.start без врагов');
+					break;
+				}
+				const rng = makeRng((ctx.day * 131 + state.chronicle.length * 17) >>> 0);
+				state.combat = startEncounter(op.enemies, rng);
+				ok(op, `бой начат: ${op.enemies.map((e) => e.name).join(', ')}`);
+				break;
+			}
+
+			case 'combat.end': {
+				state.combat = undefined as never;
+				ok(op, 'бой завершён');
 				break;
 			}
 

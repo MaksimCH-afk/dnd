@@ -119,6 +119,21 @@
 		{/each}
 	</section>
 
+	<!-- Бой (если идёт) -->
+	{#if state.combat}
+		<section class="combat">
+			<h4>⚔ Бой · обмен {state.combat.round}</h4>
+			<ul class="enemies">
+				{#each state.combat.enemies as e (e.id)}
+					<li class:down={e.hp_cur <= 0} class:fled={e.fled}>
+						<span class="ename">{e.name}</span>
+						<span class="ehp mono">{e.fled ? 'бежал' : e.hp_cur <= 0 ? 'повержен' : `${e.hp_cur}/${e.hp_max}`}</span>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
 	<!-- NPC (значимые/в сцене) -->
 	{#if state.npc.length}
 		<section>
@@ -299,6 +314,30 @@
 		background: color-mix(in srgb, var(--accent) 18%, transparent);
 	}
 	.items .qty {
+		color: var(--text-dim);
+		font-size: 0.85em;
+	}
+	.combat h4 {
+		color: var(--danger);
+		border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+	}
+	.enemies {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+	.enemies li {
+		display: flex;
+		justify-content: space-between;
+		padding: 0.2rem 0;
+		font-size: 0.85em;
+	}
+	.enemies li.down,
+	.enemies li.fled {
+		opacity: 0.5;
+		text-decoration: line-through;
+	}
+	.enemies .ehp {
 		color: var(--text-dim);
 		font-size: 0.85em;
 	}

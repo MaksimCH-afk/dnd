@@ -19,6 +19,7 @@ export * from './creation';
 export * from './knowledge';
 export * from './npcgen';
 export * from './combat';
+export * from './encounter';
 export * from './economy';
 export * from './time';
 export * from './reputation';

@@ -130,6 +130,13 @@ export interface TimerFireOp {
 	op: 'timer.fire';
 	id: string;
 }
+export interface CombatStartOp {
+	op: 'combat.start';
+	enemies: { name: string; tier?: 'слабый' | 'обычный' | 'опытный' | 'монстр'; weapon?: string }[];
+}
+export interface CombatEndOp {
+	op: 'combat.end';
+}
 export interface SeedPlantOp {
 	op: 'seed.plant';
 	description: string;
@@ -193,6 +200,8 @@ export type Op =
 	| LocationNoteOp
 	| TimerAddOp
 	| TimerFireOp
+	| CombatStartOp
+	| CombatEndOp
 	| SeedPlantOp
 	| FeatureGrantOp
 	| SpecializationOfferOp

@@ -9,7 +9,7 @@
 	import CreationWizard from '$lib/components/CreationWizard.svelte';
 	import { chronicle, addEntry, clearChronicle } from '$lib/chronicle.svelte';
 	import { settings } from '$lib/settings.svelte';
-	import { game, loadGame, createCampaign, commitState, applyTurn, checkSeedsNow, directorPropose, importBundle, campaigns } from '$lib/game.svelte';
+	import { game, loadGame, createCampaign, commitState, applyTurn, checkSeedsNow, directorPropose, importBundle, resolveCombat, campaigns } from '$lib/game.svelte';
 	import CampaignsPanel from '$lib/components/CampaignsPanel.svelte';
 	import { isDarkScene } from '$lib/darkscene';
 	import { buildSaveBundle } from '$lib/reports';
@@ -59,6 +59,15 @@
 		}
 		addEntry('player', playerText);
 
+		// Боевой обмен (если идёт бой): движок резолвит исход ДО прозы (R2).
+		let outcomes: string[] = [];
+		const combat = await resolveCombat(playerText);
+		if (combat) {
+			outcomes = combat.cues;
+			if (combat.heroDown) outcomes.push('Герой падает без сил — край гибели.');
+			else if (combat.victory) outcomes.push('Враги повержены или бежали — бой окончен.');
+		}
+
 		// RAG-ретривал (если включён): top-k релевантного из памяти мира (№2).
 		let retrieved: string[] = [];
 		if (settings.ragEnabled) {
@@ -72,7 +81,7 @@
 
 		const factsBefore = game.state.facts.length;
 		const npcBefore = game.state.npc.length;
-		const messages = buildNarratorMessages(game.state, chronicle.entries, playerText, retrieved);
+		const messages = buildNarratorMessages(game.state, chronicle.entries, playerText, retrieved, outcomes);
 		const master = addEntry('master', '', true);
 		// Тёмная сцена → упреждающий фоллбэк-профиль (не цензор).
 		const preferFallback = isDarkScene(playerText, game.state.session.current_moment);

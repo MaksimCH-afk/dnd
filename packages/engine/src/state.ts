@@ -8,6 +8,7 @@
 
 import type { PowerState, ReputationAxis, InventorySlot, FactScope } from './ops';
 import type { RuleName } from './rules';
+import type { CombatEncounter } from './encounter';
 
 export const SCHEMA_VERSION = 1;
 
@@ -304,6 +305,8 @@ export interface GameState {
 	seeds: Seed[];
 	arcs: Arc[];
 	world_state?: WorldState;
+	/** Активная боевая стычка (ТЗ §9.2), если идёт бой. */
+	combat?: CombatEncounter;
 	session: SessionState;
 	/** Какие версии правил действовали (для воспроизводимости; ТЗ §13). */
 	rules_versions?: Partial<Record<RuleName, string>>;

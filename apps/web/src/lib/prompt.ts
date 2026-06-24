@@ -37,6 +37,7 @@ npc.spawn{seed_card:{id,name,race,role,character,motivation,appearance}},
 npc.relationship{from,to,axis,delta,notes}, reputation.shift{faction,axis,delta,reason},
 contract.offer{fields:{id,title,objectives,reward,deadline_day,faction}},
 contract.update{id,fields}, contract.close{id,status}, timer.add{label,due_day,type},
+combat.start{enemies:[{name,tier:слабый|обычный|опытный|монстр,weapon}]} (начать бой — урон/исход посчитает движок), combat.end,
 power.set{state} (если маг), heat.change{delta,reason} (если intrigue), faith.shift{delta,reason} (если faith).
 scope фактов: public (все знают) | secret (только перечисленные в known_by) | player (только герой).
 ВАЖНО: NPC не может знать тайны героя, если они не в его known_by. Предлагай только реально произошедшее. Без блока — если состояние не менялось.`;
@@ -102,10 +103,14 @@ export function buildNarratorMessages(
 	state: GameState,
 	entries: ChronicleEntry[],
 	playerInput: string,
-	retrieved: string[] = []
+	retrieved: string[] = [],
+	outcomes: string[] = []
 ): ChatMessage[] {
+	const outcomeBlock = outcomes.length
+		? `\n\nИСХОД ДЕЙСТВИЯ ОТ ДВИЖКА (опиши именно это, НЕ придумывай иной результат, не называй числа/секунды):\n${outcomes.map((o) => `- ${o}`).join('\n')}`
+		: '';
 	const messages: ChatMessage[] = [
-		{ role: 'system', content: `${PHILOSOPHY}\n\n${OPS_PROTOCOL}\n\n${stateContext(state, retrieved)}` }
+		{ role: 'system', content: `${PHILOSOPHY}\n\n${OPS_PROTOCOL}\n\n${stateContext(state, retrieved)}${outcomeBlock}` }
 	];
 
 	const recent = entries.filter((e) => e.speaker !== 'system').slice(-HISTORY_LIMIT);
