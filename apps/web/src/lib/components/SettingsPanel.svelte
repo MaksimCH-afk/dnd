@@ -198,6 +198,17 @@
 
 	<div class="field">
 		<label class="check">
+			<input type="checkbox" bind:checked={settings.validatorEnabled} onchange={commit} />
+			<span>LLM-валидатор утечек знания</span>
+		</label>
+		<small class="hint">
+			Доп. вызов модели на ход: семантически проверяет, не сослался ли NPC на знание
+			вне своей памяти (страховка к детерминированному scope, баг №3). +латентность.
+		</small>
+	</div>
+
+	<div class="field">
+		<label class="check">
 			<input type="checkbox" bind:checked={settings.gitEnabled} onchange={commit} />
 			<span>Синхронизация канона через git (кросс-девайс)</span>
 		</label>

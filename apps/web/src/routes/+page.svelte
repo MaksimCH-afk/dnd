@@ -14,6 +14,7 @@
 	import { isDarkScene } from '$lib/darkscene';
 	import { buildSaveBundle } from '$lib/reports';
 	import { commitAndPush, pull, readCanon } from '$lib/gitsync';
+	import { validateLeak } from '$lib/validator';
 	import type { GameState } from '@rpg/engine';
 	import { streamLlm } from '$lib/llm';
 	import { buildNarratorMessages } from '$lib/prompt';
@@ -118,6 +119,13 @@
 							void indexItem({ id: n.id, kind: 'npc', text: `${n.core.name}: ${n.core.role}, ${n.core.character}`, day: game.state.session.day });
 						}
 					}
+				}
+			}
+			// LLM-валидатор утечек знания (опц., +1 вызов): семантическая страховка №3.
+			if (settings.validatorEnabled && game.state && master.text) {
+				const verdict = await validateLeak(settings.proxyUrl, master.text, game.state);
+				if (verdict.leak) {
+					addEntry('system', `⚠ Валидатор знания: возможная утечка — ${verdict.detail || 'NPC сослался на неизвестное'}.`);
 				}
 			}
 		} catch (e) {

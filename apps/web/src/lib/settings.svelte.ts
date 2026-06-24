@@ -17,6 +17,8 @@ export interface Settings {
 	gitEnabled: boolean;
 	gitRepoUrl: string;
 	gitBranch: string;
+	/** LLM-валидатор утечек знания (доп. вызов модели на ход). */
+	validatorEnabled: boolean;
 }
 
 const STORAGE_KEY = 'rpg.settings.v0';
@@ -30,7 +32,8 @@ const DEFAULTS: Settings = {
 	embedderModel: 'Xenova/multilingual-e5-small',
 	gitEnabled: false,
 	gitRepoUrl: '',
-	gitBranch: 'main'
+	gitBranch: 'main',
+	validatorEnabled: false
 };
 
 function load(): Settings {
