@@ -32,9 +32,19 @@ export interface HealthInfo {
 	version: string;
 }
 
+async function errBody(r: Response, path: string): Promise<Error> {
+	try {
+		const j = (await r.json()) as { error?: string };
+		if (j?.error) return new Error(j.error);
+	} catch {
+		/* тело не JSON */
+	}
+	return new Error(`${path}: HTTP ${r.status}`);
+}
+
 async function jget<T>(base: string, path: string): Promise<T> {
 	const r = await fetch(`${norm(base)}${path}`);
-	if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+	if (!r.ok) throw await errBody(r, path);
 	return (await r.json()) as T;
 }
 async function jpost<T>(base: string, path: string, body?: unknown): Promise<T> {
@@ -43,7 +53,7 @@ async function jpost<T>(base: string, path: string, body?: unknown): Promise<T> 
 		headers: { 'Content-Type': 'application/json' },
 		...(body ? { body: JSON.stringify(body) } : {})
 	});
-	if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+	if (!r.ok) throw await errBody(r, path);
 	return (await r.json()) as T;
 }
 

@@ -105,8 +105,30 @@ export async function importGame(
 		{ role: 'system', content: SYSTEM },
 		{ role: 'user', content: user }
 	];
-	const raw = await complete(cfg, 'narrator', messages, { temperature: 0.2, maxTokens: 2200 });
-	const p = extractJson(raw);
+
+	let p: ImportProfile | null = null;
+	let lastErr = '';
+	let lastRaw = '';
+	for (let attempt = 0; attempt < 2 && !p; attempt++) {
+		const msgs = attempt === 0
+			? messages
+			: [...messages, { role: 'user' as const, content: 'Верни ТОЛЬКО валидный JSON-объект по схеме. Без пояснений, без markdown.' }];
+		const raw = await complete(cfg, 'narrator', msgs, { temperature: 0.2, maxTokens: 2200 });
+		lastRaw = raw;
+		if (!raw.trim()) {
+			lastErr = 'модель Ведущего вернула пустой ответ (проверьте ключ OpenRouter и лимиты модели)';
+			continue;
+		}
+		try {
+			p = extractJson(raw);
+		} catch (e) {
+			lastErr = (e as Error).message;
+		}
+	}
+	if (!p) {
+		console.error('[import] не удалось разобрать ответ модели. Фрагмент:', lastRaw.slice(0, 400));
+		throw new Error(lastErr || 'модель не вернула JSON');
+	}
 
 	// --- Создание персонажа (валидный базовый GameState) ---
 	const choices: CreationChoices = {
