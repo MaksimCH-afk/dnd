@@ -1,4 +1,3 @@
-import { scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { DEFAULT_MODEL_CONFIG, type AppModelConfig, type LlmRole } from '@rpg/engine';
 
 /** Конфиг app-сервера. Секреты (ключи) только здесь, в клиент не попадают. */
@@ -11,8 +10,6 @@ export interface ServerConfig {
 	embedderModel: string;
 	/** Каталог собранного тонкого клиента (apps/web/build). Пусто — не раздавать статику. */
 	webDir: string | undefined;
-	/** Пароль админ-панели (env ADMIN_PASSWORD). Пусто — админ-API выключен. */
-	adminPassword: string | undefined;
 	models: AppModelConfig;
 	/** Ключ по умолчанию + переопределения по ролям. */
 	keys: {
@@ -59,7 +56,6 @@ export function loadConfig(): ServerConfig {
 		title: process.env.OPENROUTER_TITLE || undefined,
 		embedderModel: process.env.EMBEDDER_MODEL || 'Xenova/bge-m3',
 		webDir: process.env.WEB_DIR || undefined,
-		adminPassword: process.env.ADMIN_PASSWORD || undefined,
 		models: buildModels(),
 		keys: {
 			default: process.env.OPENROUTER_API_KEY || undefined,
@@ -114,29 +110,6 @@ export function applyOverrides(cfg: ServerConfig, base: ConfigBaseline, ov: Conf
 	if (ov.models?.director) models.models.director.model = ov.models.director;
 	if (ov.models?.fallback) models.models.fallback_narrator.model = ov.models.fallback;
 	cfg.models = models;
-}
-
-// --- Пароль администратора (хранится хешем в БД; .env — лишь опциональный бутстрап) ---
-
-export interface AdminSecret {
-	salt: string;
-	hash: string;
-}
-
-export function hashPassword(pw: string): AdminSecret {
-	const salt = randomBytes(16).toString('hex');
-	const hash = scryptSync(pw, salt, 32).toString('hex');
-	return { salt, hash };
-}
-
-export function verifyPassword(pw: string, secret: AdminSecret): boolean {
-	try {
-		const h = scryptSync(pw, secret.salt, 32);
-		const want = Buffer.from(secret.hash, 'hex');
-		return h.length === want.length && timingSafeEqual(h, want);
-	} catch {
-		return false;
-	}
 }
 
 /** Безопасная для клиента картина конфига: какие ключи заданы (без значений) + модели. */

@@ -27,54 +27,12 @@
 		}
 	}
 
-	// --- Администрирование (ключи/модели по ролям) ---
+	// --- Администрирование (ключи/модели по ролям; без пароля — приватный доступ) ---
 	let adminOpen = $state(false);
-	let adminPass = $state('');
 	let adminView = $state<AdminConfigView | null>(null);
 	let adminErr = $state('');
 	let adminMsg = $state('');
 	let adminBusy = $state(false);
-	let adminConfigured = $state<boolean | null>(null); // null = ещё не проверяли
-	let newPass = $state('');
-	let newPass2 = $state('');
-
-	async function adminToggle() {
-		adminOpen = !adminOpen;
-		adminErr = '';
-		if (adminOpen && adminConfigured === null) await adminCheckStatus();
-	}
-
-	async function adminCheckStatus() {
-		adminBusy = true;
-		adminErr = '';
-		try {
-			const s = await adminApi.status(settings.serverUrl);
-			adminConfigured = s.configured;
-			if (!s.dbReady) adminErr = 'БД сервера недоступна — настройки нельзя сохранить.';
-		} catch (e) {
-			adminErr = (e as Error).message;
-		} finally {
-			adminBusy = false;
-		}
-	}
-
-	async function adminSetup() {
-		adminErr = '';
-		if (newPass.length < 4) { adminErr = 'пароль слишком короткий (минимум 4 символа)'; return; }
-		if (newPass !== newPass2) { adminErr = 'пароли не совпадают'; return; }
-		adminBusy = true;
-		try {
-			await adminApi.setPassword(settings.serverUrl, newPass);
-			adminPass = newPass;
-			adminConfigured = true;
-			newPass = newPass2 = '';
-			await adminLogin();
-		} catch (e) {
-			adminErr = (e as Error).message;
-		} finally {
-			adminBusy = false;
-		}
-	}
 
 	// поля моделей (предзаполняются текущими), поля ключей (всегда пустые — секреты не показываем)
 	let mNarrator = $state('');
@@ -94,16 +52,20 @@
 		mFallback = v.models.fallback;
 	}
 
-	async function adminLogin() {
+	async function adminToggle() {
+		adminOpen = !adminOpen;
+		if (adminOpen && !adminView) await adminLoad();
+	}
+
+	async function adminLoad() {
 		adminErr = '';
 		adminMsg = '';
 		adminBusy = true;
 		try {
-			adminView = await adminApi.get(settings.serverUrl, adminPass);
+			adminView = await adminApi.get(settings.serverUrl);
 			fillModels(adminView);
 		} catch (e) {
 			adminErr = (e as Error).message;
-			adminView = null;
 		} finally {
 			adminBusy = false;
 		}
@@ -114,9 +76,7 @@
 		adminMsg = '';
 		adminBusy = true;
 		const patch: AdminConfigPatch = {
-			// модели шлём как есть (пусто = вернуть к env)
 			models: { narrator: mNarrator, validator: mValidator, director: mDirector, fallback: mFallback },
-			// ключи: только непустые (введён новый секрет); пустое поле не трогает текущий
 			keys: {}
 		};
 		if (kDefault.trim()) patch.keys!.default = kDefault.trim();
@@ -125,7 +85,7 @@
 		if (kDirector.trim()) patch.keys!.director = kDirector.trim();
 		if (kFallback.trim()) patch.keys!.fallback = kFallback.trim();
 		try {
-			adminView = await adminApi.save(settings.serverUrl, adminPass, patch);
+			adminView = await adminApi.save(settings.serverUrl, patch);
 			fillModels(adminView);
 			kDefault = kNarrator = kValidator = kDirector = kFallback = '';
 			adminMsg = 'Сохранено и применено.';
@@ -141,15 +101,14 @@
 		adminErr = '';
 		adminMsg = '';
 		try {
-			adminView = await adminApi.save(settings.serverUrl, adminPass, { keys: { [role]: '' } });
-			adminMsg = `Ключ роли «${role}» сброшен к серверному (.env).`;
+			adminView = await adminApi.save(settings.serverUrl, { keys: { [role]: '' } });
+			adminMsg = `Ключ роли «${role}» сброшен к серверному.`;
 		} catch (e) {
 			adminErr = (e as Error).message;
 		} finally {
 			adminBusy = false;
 		}
 	}
-
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -195,30 +154,15 @@
 		<span class="mono val">{settings.textScale.toFixed(2)}×</span>
 	</label>
 
-	<!-- Администрирование: ключи и модели по ролям (на сервере, под паролем) -->
+	<!-- Администрирование: ключи и модели по ролям (на сервере, в БД) -->
 	<div class="admin">
 		<button class="admin-toggle" onclick={adminToggle}>
 			<span>{adminOpen ? '▾' : '▸'} Администрирование — ключи и модели</span>
 		</button>
 		{#if adminOpen}
-			{#if adminConfigured === null}
-				<p class="hint">Проверяю сервер…</p>
-				{#if adminErr}<span class="err mono">✕ {adminErr}</span>{/if}
-			{:else if !adminConfigured}
-				<p class="hint">Первый запуск: задайте пароль администратора. Он хранится на сервере (в БД, хешем) — не в файлах. Дальше под ним правятся ключи и модели.</p>
-				<label class="arow"><span>Новый пароль</span><input type="password" class="mono" bind:value={newPass} placeholder="мин. 4 символа" /></label>
-				<label class="arow"><span>Ещё раз</span><input type="password" class="mono" bind:value={newPass2} /></label>
-				<div class="admin-actions">
-					<button class="save" onclick={adminSetup} disabled={adminBusy || !newPass}>{adminBusy ? '…' : 'Задать пароль'}</button>
-					{#if adminErr}<span class="err mono">✕ {adminErr}</span>{/if}
-				</div>
-			{:else if !adminView}
-				<p class="hint">Введите пароль администратора. Секреты остаются на сервере (в браузер не возвращаются).</p>
-				<div class="probe">
-					<input type="password" class="mono" bind:value={adminPass} placeholder="пароль администратора" />
-					<button onclick={adminLogin} disabled={adminBusy || !adminPass}>{adminBusy ? '…' : 'Войти'}</button>
-				</div>
-				{#if adminErr}<span class="err mono">✕ {adminErr}</span>{/if}
+			{#if !adminView}
+				<p class="hint">{adminBusy ? 'Загрузка с сервера…' : 'Не удалось загрузить настройки.'}</p>
+				{#if adminErr}<span class="err mono">✕ {adminErr}</span> <button class="retry" onclick={adminLoad}>Повторить</button>{/if}
 			{:else}
 				<div class="admin-block">
 					<div class="block-title mono">Модели по ролям</div>
@@ -231,19 +175,19 @@
 
 				<div class="admin-block">
 					<div class="block-title mono">Ключи OpenRouter по ролям</div>
-					<p class="hint">Введите новый ключ, чтобы заменить. Пустое поле — не менять. ✕ — сбросить к серверному (.env).</p>
+					<p class="hint">Введите ключ, чтобы задать/заменить. Пустое поле — не менять. ✕ — сбросить.</p>
 					{#snippet keyRow(label: string, role: 'default' | 'narrator' | 'validator' | 'director' | 'fallback', value: string, set: (v: string) => void)}
 						<label class="arow">
 							<span>{label}</span>
 							<input
 								type="password"
 								class="mono"
-								placeholder={adminView!.keysSet[role] ? (adminView!.overridden.keys.includes(role) ? 'задан (админка)' : 'задан (сервер)') : 'не задан'}
+								placeholder={adminView!.keysSet[role] ? 'задан' : 'не задан'}
 								value={value}
 								oninput={(e) => set((e.currentTarget as HTMLInputElement).value)}
 							/>
 							{#if adminView!.overridden.keys.includes(role)}
-								<button class="clear" title="Сбросить к .env" onclick={() => clearKey(role)} disabled={adminBusy}>✕</button>
+								<button class="clear" title="Сбросить" onclick={() => clearKey(role)} disabled={adminBusy}>✕</button>
 							{/if}
 						</label>
 					{/snippet}
@@ -264,8 +208,9 @@
 	</div>
 
 	<p class="note">
-		Ключи, модели и пароль администратора задаются здесь и хранятся в БД сервера —
-		файл <code class="mono">.env</code> не нужен. Клиент тонкий: секреты в браузере не хранятся.
+		Ключи и модели задаются здесь и хранятся в БД сервера — файл <code class="mono">.env</code> не нужен.
+		Клиент тонкий: секреты в браузере не хранятся. Доступ к серверу ограничивайте сетью (Tailscale)
+		или обратным прокси с авторизацией (Caddy) — отдельного пароля у админки нет.
 	</p>
 </div>
 
@@ -281,7 +226,6 @@
 	input, select { background: var(--field, var(--surface-raised)); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .45rem .6rem; font: inherit; }
 	input[type='range'] { flex: 1; margin: 0 .6rem; }
 	.probe { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
-	.probe input { flex: 1; min-width: 10rem; }
 	.probe button { background: var(--surface-raised); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .4rem .8rem; }
 	.ok { color: var(--accent); font-size: .82em; }
 	.err { color: var(--danger); font-size: .82em; }
@@ -294,6 +238,7 @@
 	.admin { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: .8rem; }
 	.admin-toggle { background: none; border: none; color: var(--warm); font-size: .8rem; text-transform: uppercase; letter-spacing: .12em; font-family: var(--font-mono); padding: 0; }
 	.hint { font-size: .76em; color: var(--text-dim); margin: .5rem 0; line-height: 1.4; }
+	.retry { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: .1rem .5rem; font-size: .8em; }
 	.admin-block { margin: .8rem 0; }
 	.block-title { font-size: .68rem; text-transform: uppercase; letter-spacing: .14em; color: var(--warm); margin-bottom: .4rem; }
 	.arow { display: flex; align-items: center; gap: .6rem; margin-bottom: .4rem; }

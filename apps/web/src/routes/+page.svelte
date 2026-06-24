@@ -113,6 +113,7 @@
 					<p>Игра не начата.</p>
 					<button class="newgame" onclick={() => (showCreation = true)}>Новая игра</button>
 					<button class="link" onclick={() => (showCampaigns = true)}>Открыть кампанию</button>
+					<button class="link" onclick={() => (showImport = true)}>⇪ Импорт из документов</button>
 				</div>
 			{/if}
 		</aside>

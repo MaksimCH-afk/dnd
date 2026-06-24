@@ -1,15 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
 import { createCharacter, type CreationChoices, type GameState } from '@rpg/engine';
 import {
 	loadConfig,
 	snapshotBaseline,
 	applyOverrides,
 	publicConfigView,
-	hashPassword,
-	verifyPassword,
-	type ConfigOverrides,
-	type AdminSecret
+	type ConfigOverrides
 } from './config';
 import { Db } from './db';
 import { Campaigns } from './campaigns';
@@ -20,38 +16,13 @@ import { importGame, type ImportDocs } from './import';
 
 const cfg = loadConfig();
 const baseline = snapshotBaseline(cfg); // env-база (до сохранённых переопределений)
-// Весь конфиг-документ из БД: переопределения ключей/моделей + хеш пароля админки.
-let storedConfig: { overrides?: ConfigOverrides; admin?: AdminSecret } = {};
+// Конфиг-документ из БД: переопределения ключей/моделей (без пароля — гейта нет).
+let storedConfig: { overrides?: ConfigOverrides } = {};
 let overrides: ConfigOverrides = {};
 const db = new Db(cfg);
 const campaigns = new Campaigns(db);
 const rag = new Rag(db, cfg);
 const VERSION = '0.0.0';
-
-/** Задан ли пароль администратора (в БД или через env-бутстрап). */
-function adminConfigured(): boolean {
-	return Boolean(storedConfig.admin) || Boolean(cfg.adminPassword);
-}
-
-function reqPassword(req: IncomingMessage): string {
-	const given = req.headers['x-admin-password'];
-	return Array.isArray(given) ? given[0] ?? '' : given ?? '';
-}
-
-/** Проверка пароля: БД-хеш (приоритет) → иначе env-бутстрап. */
-function checkPassword(pw: string): boolean {
-	if (storedConfig.admin) return verifyPassword(pw, storedConfig.admin);
-	if (cfg.adminPassword) {
-		const a = Buffer.from(pw);
-		const b = Buffer.from(cfg.adminPassword);
-		return a.length === b.length && timingSafeEqual(a, b);
-	}
-	return false;
-}
-
-function adminAuthed(req: IncomingMessage): boolean {
-	return adminConfigured() && checkPassword(reqPassword(req));
-}
 
 async function persistConfig(): Promise<void> {
 	await db.setConfig(storedConfig);
@@ -65,7 +36,7 @@ function setCors(req: IncomingMessage, res: ServerResponse): void {
 		res.setHeader('Vary', 'Origin');
 	}
 	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-	res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Password');
+	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -184,48 +155,8 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		return;
 	}
 
-	// --- Статус админки (нужна ли первичная установка пароля) ---
-	if (req.method === 'GET' && path === '/admin/status') {
-		json(res, 200, { configured: adminConfigured(), dbReady: await db.healthy() });
-		return;
-	}
-
-	// --- Установка/смена пароля администратора ---
-	if (req.method === 'POST' && path === '/admin/password') {
-		const body = await readJson<{ next?: string; current?: string }>(req);
-		const next = (body.next ?? '').toString();
-		if (next.length < 4) {
-			json(res, 400, { error: 'пароль слишком короткий (минимум 4 символа)' });
-			return;
-		}
-		// Если пароль уже задан — нужен текущий (из тела или заголовка). Если нет — первичная установка без авторизации.
-		if (adminConfigured()) {
-			const cur = body.current ?? reqPassword(req);
-			if (!checkPassword(cur)) {
-				json(res, 401, { error: 'неверный текущий пароль' });
-				return;
-			}
-		}
-		if (!(await db.healthy())) {
-			json(res, 503, { error: 'БД недоступна — пароль не сохранить' });
-			return;
-		}
-		storedConfig.admin = hashPassword(next);
-		await persistConfig();
-		json(res, 200, { ok: true, configured: true });
-		return;
-	}
-
-	// --- Админ-конфиг (ключи/модели по ролям) ---
+	// --- Админ-конфиг (ключи/модели по ролям) — без пароля (приватный доступ) ---
 	if (path === '/admin/config') {
-		if (!adminConfigured()) {
-			json(res, 403, { error: 'пароль администратора не задан', needsSetup: true });
-			return;
-		}
-		if (!adminAuthed(req)) {
-			json(res, 401, { error: 'неверный пароль администратора' });
-			return;
-		}
 		if (req.method === 'GET') {
 			json(res, 200, publicConfigView(cfg, overrides));
 			return;
@@ -308,14 +239,14 @@ async function main(): Promise<void> {
 		console.log('[server] миграции БД применены');
 		try {
 			const raw = await db.getConfig();
-			// Поддержка как нового формата { overrides, admin }, так и старого плоского { keys, models }.
-			if (raw.overrides || raw.admin) storedConfig = raw as typeof storedConfig;
+			// Поддержка нового формата { overrides } и старого плоского { keys, models }.
+			if (raw.overrides) storedConfig = { overrides: raw.overrides as ConfigOverrides };
 			else if (raw.keys || raw.models) storedConfig = { overrides: raw as ConfigOverrides };
 			overrides = storedConfig.overrides ?? {};
 			applyOverrides(cfg, baseline, overrides);
 			const ovK = Object.keys(overrides.keys ?? {}).length;
 			const ovM = Object.keys(overrides.models ?? {}).length;
-			console.log(`[server] конфиг из БД: ключей ${ovK}, моделей ${ovM}, пароль админки: ${adminConfigured() ? 'задан' : 'НЕ задан'}`);
+			if (ovK || ovM) console.log(`[server] конфиг из БД: ключей ${ovK}, моделей ${ovM}`);
 		} catch (e) {
 			console.error('[server] не удалось загрузить конфиг из БД:', (e as Error).message);
 		}

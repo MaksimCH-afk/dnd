@@ -76,36 +76,17 @@ export interface AdminConfigPatch {
 }
 
 export const adminApi = {
-	status: async (base: string): Promise<{ configured: boolean; dbReady: boolean }> => {
-		const r = await fetch(`${norm(base)}/admin/status`);
-		if (!r.ok) throw new Error(`HTTP ${r.status}`);
-		return (await r.json()) as { configured: boolean; dbReady: boolean };
-	},
-	setPassword: async (base: string, next: string, current?: string): Promise<void> => {
-		const r = await fetch(`${norm(base)}/admin/password`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ next, ...(current ? { current } : {}) })
-		});
-		if (r.status === 401) throw new Error('неверный текущий пароль');
-		if (r.status === 400) throw new Error('пароль слишком короткий (минимум 4 символа)');
-		if (r.status === 503) throw new Error('БД недоступна — не сохранить');
-		if (!r.ok) throw new Error(`HTTP ${r.status}`);
-	},
-	get: async (base: string, password: string): Promise<AdminConfigView> => {
-		const r = await fetch(`${norm(base)}/admin/config`, { headers: { 'X-Admin-Password': password } });
-		if (r.status === 401) throw new Error('неверный пароль');
-		if (r.status === 403) throw new Error('админ-API выключен (нет ADMIN_PASSWORD на сервере)');
+	get: async (base: string): Promise<AdminConfigView> => {
+		const r = await fetch(`${norm(base)}/admin/config`);
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		return (await r.json()) as AdminConfigView;
 	},
-	save: async (base: string, password: string, patch: AdminConfigPatch): Promise<AdminConfigView> => {
+	save: async (base: string, patch: AdminConfigPatch): Promise<AdminConfigView> => {
 		const r = await fetch(`${norm(base)}/admin/config`, {
 			method: 'PUT',
-			headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(patch)
 		});
-		if (r.status === 401) throw new Error('неверный пароль');
 		if (r.status === 503) throw new Error('БД недоступна — не сохранить');
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		return (await r.json()) as AdminConfigView;
