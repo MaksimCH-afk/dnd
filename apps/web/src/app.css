@@ -1,0 +1,111 @@
+/*
+ * Дизайн-токены (ТЗ раздел 18.2), dark-first.
+ * Концепция: «живая хроника» — поток прозы, механика проступает на полях.
+ * Раскол шрифтов зеркалит раскол нарратор/движок: антиква = проза, моно = механика.
+ *
+ * Именованные шрифты (Literata/Spectral/JetBrains Mono) подключаются в фазе 6;
+ * пока — системные стеки с хорошим кириллическим фоллбэком, офлайн-устойчиво.
+ */
+
+:root {
+	/* Палитра */
+	--ink-900: #0e1116; /* фон (сине-чёрная тушь) */
+	--ink-800: #161b24; /* панели/карточки */
+	--ink-700: #1f2630; /* приподнятые поверхности */
+	--vellum-100: #e7e2d4; /* текст прозы (тёплый пергамент) */
+	--vellum-300: #a9a491; /* вторичный текст */
+	--moon-300: #c5cedc; /* акцент (ссылки, выделения) */
+	--accent-400: #4fd6c9; /* сигнатурный акцент «нити состояния» */
+	--dark-700: #7a2e3b; /* тёмные дуги/угроза — редко и веско */
+
+	/* Семантика */
+	--bg: var(--ink-900);
+	--surface: var(--ink-800);
+	--surface-raised: var(--ink-700);
+	--text: var(--vellum-100);
+	--text-dim: var(--vellum-300);
+	--accent: var(--accent-400);
+	--link: var(--moon-300);
+	--danger: var(--dark-700);
+	--border: color-mix(in srgb, var(--vellum-300) 14%, transparent);
+
+	/* Типографика */
+	--font-display: 'Spectral', 'Literata', Georgia, 'Times New Roman', serif;
+	--font-prose: 'Literata', Georgia, 'PT Serif', serif;
+	--font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'Cascadia Code', monospace;
+
+	--prose-measure: 68ch; /* 60–75 знаков/строка */
+	--text-scale: 1; /* регулируется в настройках */
+
+	--radius: 10px;
+	--gutter: clamp(0.75rem, 2vw, 1.5rem);
+}
+
+:root[data-theme='light'] {
+	/* Светлая «скрипторий»-тема (вторична) */
+	--bg: #efe9da;
+	--surface: #e7e2d4;
+	--surface-raised: #ddd6c4;
+	--text: #1c1a14;
+	--text-dim: #5c574a;
+	--link: #2a4a6a;
+	--border: color-mix(in srgb, #1c1a14 14%, transparent);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	height: 100%;
+}
+
+body {
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--font-prose);
+	font-size: calc(1rem * var(--text-scale));
+	line-height: 1.6;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+	font-family: var(--font-display);
+	font-weight: 600;
+	line-height: 1.2;
+}
+
+.mono {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+a {
+	color: var(--link);
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 3px;
+}
+
+button {
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		transition-duration: 0.001ms !important;
+	}
+}

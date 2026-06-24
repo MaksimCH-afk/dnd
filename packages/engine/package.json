@@ -1,0 +1,21 @@
+{
+  "name": "@rpg/engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Детерминированный движок состояния текстового НРИ (фреймворк-агностичный)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts",
+    "./ops": "./src/ops.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
