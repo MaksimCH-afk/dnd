@@ -11,11 +11,13 @@
 		intensity?: number;
 		/** Пульсирует ли (например, рядом Место Силы). */
 		pulse?: boolean;
+		/** Тон: обычный акцент или тревога (раны/истощение/высокий след). */
+		tone?: 'accent' | 'danger';
 	}
-	let { intensity = 0.25, pulse = false }: Props = $props();
+	let { intensity = 0.25, pulse = false, tone = 'accent' }: Props = $props();
 </script>
 
-<div class="thread" class:pulse style="--i: {intensity}" aria-hidden="true">
+<div class="thread" class:pulse class:danger={tone === 'danger'} style="--i: {intensity}" aria-hidden="true">
 	<div class="line"></div>
 </div>
 
@@ -27,16 +29,23 @@
 		justify-content: center;
 		background: transparent;
 	}
+	.thread {
+		--thread-color: var(--accent);
+	}
+	.thread.danger {
+		--thread-color: var(--danger);
+	}
 	.line {
 		width: 1px;
 		height: 100%;
 		background: linear-gradient(
 			to bottom,
 			transparent,
-			color-mix(in srgb, var(--accent) calc(var(--i) * 100%), transparent),
+			color-mix(in srgb, var(--thread-color) calc(var(--i) * 100%), transparent),
 			transparent
 		);
-		box-shadow: 0 0 calc(6px * var(--i)) color-mix(in srgb, var(--accent) 60%, transparent);
+		box-shadow: 0 0 calc(6px * var(--i)) color-mix(in srgb, var(--thread-color) 60%, transparent);
+		transition: background 0.6s ease, box-shadow 0.6s ease;
 	}
 	.pulse .line {
 		animation: pulse 3.5s ease-in-out infinite;

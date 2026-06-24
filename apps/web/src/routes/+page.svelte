@@ -1,67 +1,134 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Chronicle from '$lib/components/Chronicle.svelte';
 	import Composer from '$lib/components/Composer.svelte';
 	import StatusThread from '$lib/components/StatusThread.svelte';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
 	import RulesPanel from '$lib/components/RulesPanel.svelte';
+	import Ledger from '$lib/components/Ledger.svelte';
 	import { chronicle, addEntry } from '$lib/chronicle.svelte';
 	import { settings } from '$lib/settings.svelte';
+	import { game, loadGame, newGame, applyTurn } from '$lib/game.svelte';
 	import { streamLlm } from '$lib/llm';
 	import { buildNarratorMessages } from '$lib/prompt';
+	import { extractOps } from '$lib/ops-extract';
+	import { threadModel, statusFields } from '$lib/status';
+	import { buildGoReport, buildSaveReport } from '$lib/reports';
 
 	let busy = $state(false);
 	let showSettings = $state(false);
 	let showRules = $state(false);
 	let ledgerOpen = $state(true);
+	let highlight = $state<Set<string>>(new Set());
+
+	const thread = $derived(game.state ? threadModel(game.state) : { intensity: 0.2, tone: 'accent' as const, pulse: false, label: '' });
+	const topStatus = $derived(game.state ? statusFields(game.state) : []);
+
+	onMount(() => {
+		void loadGame();
+	});
+
+	function startNewGame() {
+		newGame();
+		const s = game.state!;
+		addEntry('system', `Новая игра (временный персонаж до флоу создания, Фаза 2).`);
+		addEntry('master', s.session.current_moment);
+	}
 
 	async function handleSend(text: string) {
-		// Команды фазы 0: /save и /ask ещё не подкреплены состоянием — честно сообщаем.
-		if (text.startsWith('/save')) {
-			addEntry('system', 'Сохранение появится в Фазе 1 (движок состояния + git-синк). Сейчас хроника эфемерна.');
-			return;
-		}
-		if (text.startsWith('/ask')) {
-			addEntry('system', 'Мета-режим «/ask» (взгляд под капот: броски, Сила, причины реакций) появится в Фазе 4 вместе с механикой.');
-			return;
-		}
-		// /go в фазе 0 = просто продолжить; команду из текста убираем.
-		const playerText = text.replace(/^\/go\s*/, '').trim() || 'Продолжаем.';
+		if (text.startsWith('/save')) return doSave();
+		if (text.startsWith('/ask')) return doAsk(text.replace(/^\/ask\s*/, ''));
+		if (text.startsWith('/go')) return doGo();
 
+		const playerText = text.replace(/^\/go\s*/, '').trim();
+		if (!game.state) {
+			addEntry('system', 'Сначала начните игру: кнопка «Новая игра» в гроссбухе.');
+			return;
+		}
 		addEntry('player', playerText);
-		const messages = buildNarratorMessages(chronicle.entries, playerText);
-
+		const messages = buildNarratorMessages(game.state, chronicle.entries, playerText);
 		const master = addEntry('master', '', true);
 		busy = true;
 		try {
 			await streamLlm(settings.proxyUrl, 'narrator', messages, {
-				onDelta: (chunk) => {
-					master.text += chunk;
-				},
+				onDelta: (chunk) => (master.text += chunk),
 				onDone: (e) => {
-					master.streaming = false;
 					master.model = e.meta.model;
 					master.usedFallback = e.meta.usedFallback;
 				},
 				onError: (e) => {
-					master.streaming = false;
 					master.text = master.text || `⚠ ${describeError(e.code)}: ${e.message}`;
 				}
 			});
-		} catch (e) {
-			master.streaming = false;
-			if (!master.text) {
-				master.text = `⚠ Мир замер: нет связи с моделью. Ход не отправлен — попробуйте снова. (${(e as Error).message})`;
+			// Извлечь предложенные операции, применить через движок.
+			const { clean, ops } = extractOps(master.text);
+			master.text = clean;
+			if (ops.length && game.state) {
+				const before = new Map(game.state.inventory.items.map((i) => [i.id, i.qty]));
+				const res = await applyTurn(ops);
+				master.streaming = false;
+				if (res) {
+					highlight = changedItems(before);
+					if (res.rejected.length) {
+						addEntry('system', `Движок отклонил ${res.rejected.length} оп.: ${res.rejected.map((r) => r.reason).join('; ')}`);
+					}
+				}
 			}
+		} catch (e) {
+			if (!master.text) master.text = `⚠ Мир замер: нет связи с моделью. Ход не отправлен. (${(e as Error).message})`;
 		} finally {
 			master.streaming = false;
 			busy = false;
 		}
 	}
 
+	function changedItems(before: Map<string, number>): Set<string> {
+		const set = new Set<string>();
+		if (!game.state) return set;
+		for (const it of game.state.inventory.items) {
+			if (before.get(it.id) !== it.qty) set.add(it.id);
+		}
+		return set;
+	}
+
+	async function doSave() {
+		if (!game.state) {
+			addEntry('system', 'Нечего сохранять — игра не начата.');
+			return;
+		}
+		addEntry('system', buildSaveReport(game.state, game.lastApply));
+	}
+
+	function doGo() {
+		if (!game.state) {
+			addEntry('system', 'Игра не начата. Нажмите «Новая игра» в гроссбухе.');
+			return;
+		}
+		addEntry('system', buildGoReport(game.state));
+	}
+
+	function doAsk(question: string) {
+		if (!game.state) {
+			addEntry('system', '/ask: игра не начата.');
+			return;
+		}
+		const c = game.state.character.core;
+		const lines = [`/ask${question ? ` — ${question}` : ''} (под капотом):`];
+		lines.push(`Скрытые атрибуты: ${Object.entries(c.attrs).map(([k, v]) => `${k} ${v}`).join(', ')}`);
+		if (game.lastApply) {
+			lines.push(`Последний ход — лог движка:`);
+			lines.push(...game.lastApply.log.map((l) => `  ${l}`));
+			if (!game.lastApply.log.length) lines.push('  (операций не было)');
+		} else {
+			lines.push('Ходов с операциями ещё не было.');
+		}
+		addEntry('system', lines.join('\n'));
+	}
+
 	function describeError(code?: string): string {
 		switch (code) {
 			case 'no_key':
-				return 'на прокси не задан ключ OpenRouter';
+				return 'нет ключа OpenRouter (добавьте в настройках)';
 			case 'upstream':
 				return 'модель недоступна (исчерпаны ретраи и фоллбэк)';
 			default:
@@ -76,13 +143,18 @@
 
 <div class="app">
 	<header class="topbar">
-		<button class="ledger-toggle" onclick={() => (ledgerOpen = !ledgerOpen)} aria-label="Гроссбух">☰</button>
+		<button class="icon" onclick={() => (ledgerOpen = !ledgerOpen)} aria-label="Гроссбух">☰</button>
 		<div class="scene mono">
-			<span class="sync" title="Синхронизация — Фаза 1">⊙</span>
-			Пролог · хроника
+			{#if topStatus.length}
+				{#each topStatus.slice(0, 4) as f (f.label)}
+					<span class="chip">{f.label} {f.value}</span>
+				{/each}
+			{:else}
+				<span class="sync">⊙</span> Пролог
+			{/if}
 		</div>
-		<button class="settings-btn" onclick={() => (showRules = true)} aria-label="Файлы правил" title="Файлы правил">📖</button>
-		<button class="settings-btn" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>
+		<button class="icon" onclick={() => (showRules = true)} aria-label="Файлы правил" title="Файлы правил">📖</button>
+		<button class="icon" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>
 	</header>
 
 	<main class="layout" class:ledger-open={ledgerOpen}>
@@ -91,18 +163,24 @@
 			<Composer {busy} onsend={handleSend} />
 		</section>
 
-		<StatusThread intensity={busy ? 0.5 : 0.2} pulse={busy} />
+		<StatusThread intensity={busy ? Math.min(1, thread.intensity + 0.2) : thread.intensity} tone={thread.tone} pulse={thread.pulse || busy} />
 
 		<aside class="ledger" hidden={!ledgerOpen}>
-			<h2 class="mono">Гроссбух</h2>
-			<p class="ph">
-				Состояние персонажа, инвентарь, NPC и таймеры появятся здесь в Фазе 1–4.
-				Гроссбух рендерит только активные модули сборки.
-			</p>
-			<div class="thread-legend mono">
-				<span>нить состояния</span>
-				<small>кодирует ресурс-риск сборки (Сила / выносливость / след / вера)</small>
-			</div>
+			{#if game.state}
+				<Ledger state={game.state} {highlight} />
+				{#if thread.label}
+					<div class="thread-legend mono">
+						<span>нить состояния</span><small>{thread.label}</small>
+					</div>
+				{/if}
+			{:else}
+				<div class="empty-ledger">
+					<h2 class="mono">Гроссбух</h2>
+					<p>Игра не начата.</p>
+					<button class="newgame" onclick={startNewGame}>Новая игра</button>
+					<small>Временный персонаж-наёмник до флоу создания (Фаза 2).</small>
+				</div>
+			{/if}
 		</aside>
 	</main>
 </div>
@@ -110,7 +188,6 @@
 {#if showSettings}
 	<SettingsPanel onclose={() => (showSettings = false)} />
 {/if}
-
 {#if showRules}
 	<RulesPanel onclose={() => (showRules = false)} />
 {/if}
@@ -132,25 +209,33 @@
 	}
 	.topbar .scene {
 		flex: 1;
-		text-align: center;
+		display: flex;
+		gap: 0.4rem;
+		justify-content: center;
+		flex-wrap: wrap;
 		color: var(--text-dim);
-		font-size: 0.85em;
+		font-size: 0.78em;
+		overflow: hidden;
+	}
+	.chip {
+		white-space: nowrap;
+		padding: 0.1rem 0.5rem;
+		background: var(--surface-raised);
+		border: 1px solid var(--border);
+		border-radius: 999px;
 	}
 	.sync {
 		color: var(--accent);
 		opacity: 0.6;
-		margin-right: 0.3rem;
 	}
-	.ledger-toggle,
-	.settings-btn {
+	.icon {
 		background: none;
 		border: none;
 		color: var(--text-dim);
 		font-size: 1.1rem;
 		padding: 0.2rem 0.4rem;
 	}
-	.ledger-toggle:hover,
-	.settings-btn:hover {
+	.icon:hover {
 		color: var(--accent);
 	}
 
@@ -161,33 +246,43 @@
 		min-height: 0;
 	}
 	.layout.ledger-open {
-		grid-template-columns: 1fr auto minmax(220px, 300px);
+		grid-template-columns: 1fr auto minmax(240px, 320px);
 	}
-
 	.chronicle-col {
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
 		min-width: 0;
 	}
-
 	.ledger {
 		border-left: 1px solid var(--border);
 		background: var(--surface);
 		padding: 1.2rem;
 		overflow-y: auto;
 	}
-	.ledger h2 {
+	.empty-ledger {
+		color: var(--text-dim);
+		text-align: center;
+		margin-top: 2rem;
+	}
+	.empty-ledger h2 {
 		font-size: 0.8rem;
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
-		color: var(--text-dim);
-		margin: 0 0 1rem;
 	}
-	.ledger .ph {
-		font-size: 0.85em;
-		color: var(--text-dim);
-		line-height: 1.5;
+	.newgame {
+		margin: 1rem 0 0.6rem;
+		background: var(--accent);
+		color: var(--ink-900);
+		border: none;
+		border-radius: var(--radius);
+		padding: 0.6rem 1.2rem;
+		font-size: 0.95em;
+	}
+	.empty-ledger small {
+		display: block;
+		font-size: 0.75em;
+		opacity: 0.7;
 	}
 	.thread-legend {
 		margin-top: 1.5rem;
@@ -196,14 +291,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.3rem;
-		font-size: 0.75em;
+		font-size: 0.72em;
 		color: var(--accent);
 	}
 	.thread-legend small {
 		color: var(--text-dim);
 	}
 
-	/* Планшет/телефон: гроссбух — шторка (упрощённо в фазе 0 — скрыт). */
 	@media (max-width: 760px) {
 		.layout.ledger-open {
 			grid-template-columns: 1fr auto;
@@ -213,7 +307,7 @@
 			top: 0;
 			right: 0;
 			bottom: 0;
-			width: min(80vw, 300px);
+			width: min(85vw, 320px);
 			z-index: 5;
 			box-shadow: -8px 0 30px rgba(0, 0, 0, 0.4);
 		}
