@@ -1,7 +1,13 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import type { HealthResponse, LlmRequest, LlmStreamEvent } from '@rpg/engine';
+import type {
+	HealthResponse,
+	LlmRequest,
+	LlmStreamEvent,
+	VerifyKeyRequest,
+	VerifyKeyResponse
+} from '@rpg/engine';
 import { loadConfig } from './config';
-import { streamCompletion } from './openrouter';
+import { streamCompletion, verifyKey } from './openrouter';
 
 const cfg = loadConfig();
 const VERSION = '0.0.0';
@@ -50,7 +56,20 @@ function handleHealth(res: ServerResponse): void {
 	for (const [role, m] of Object.entries(cfg.models.models)) {
 		models[role] = { model: m.model, ...(m.alternative ? { alternative: m.alternative } : {}) };
 	}
-	const body: HealthResponse = { ok: true, hasApiKey: Boolean(cfg.apiKey), models, version: VERSION };
+	const body: HealthResponse = { ok: true, hasEnvKey: Boolean(cfg.apiKey), models, version: VERSION };
+	json(res, 200, body);
+}
+
+async function handleVerify(req: IncomingMessage, res: ServerResponse): Promise<void> {
+	let parsed: VerifyKeyRequest;
+	try {
+		parsed = JSON.parse(await readBody(req)) as VerifyKeyRequest;
+	} catch (err) {
+		json(res, 400, { error: `некорректное тело: ${(err as Error).message}` });
+		return;
+	}
+	const result = await verifyKey(parsed.apiKey ?? '');
+	const body: VerifyKeyResponse = result;
 	json(res, 200, body);
 }
 
@@ -113,6 +132,11 @@ const server = createServer((req, res) => {
 		return;
 	}
 
+	if (req.method === 'POST' && path === '/verify') {
+		void handleVerify(req, res);
+		return;
+	}
+
 	const llmMatch = path.match(/^\/llm\/([a-z_]+)$/);
 	if (req.method === 'POST' && llmMatch) {
 		void handleLlm(req, res, llmMatch[1]!);
@@ -129,7 +153,9 @@ const server = createServer((req, res) => {
 });
 
 server.listen(cfg.port, () => {
-	const keyState = cfg.apiKey ? 'ключ задан' : 'ВНИМАНИЕ: OPENROUTER_API_KEY не задан';
+	const keyState = cfg.apiKey
+		? 'env-сид ключа задан'
+		: 'ключ ожидается из UI (env-сид не задан — это норма)';
 	console.log(`[proxy] слушаю :${cfg.port} — ${keyState}`);
 	console.log(`[proxy] CORS origins: ${cfg.corsOrigins.join(', ') || '(нет)'}`);
 });

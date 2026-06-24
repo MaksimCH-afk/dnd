@@ -43,6 +43,28 @@ interface AttemptResult {
 	model: string;
 }
 
+/** Проверка валидности ключа: список моделей OpenRouter. */
+export async function verifyKey(
+	apiKey: string,
+	signal?: AbortSignal
+): Promise<{ ok: boolean; modelCount?: number; error?: string }> {
+	if (!apiKey) return { ok: false, error: 'пустой ключ' };
+	try {
+		const res = await fetch('https://openrouter.ai/api/v1/models', {
+			headers: { Authorization: `Bearer ${apiKey}` },
+			...(signal ? { signal } : {})
+		});
+		if (res.status === 401 || res.status === 403) {
+			return { ok: false, error: 'ключ отклонён (401/403)' };
+		}
+		if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+		const data = (await res.json()) as { data?: unknown[] };
+		return { ok: true, modelCount: Array.isArray(data.data) ? data.data.length : undefined };
+	} catch (err) {
+		return { ok: false, error: `сеть: ${(err as Error).message}` };
+	}
+}
+
 /**
  * Перебирает кандидатов с экспоненциальным бэкоффом. Возвращает первый
  * успешно открытый поток или бросает с агрегированной причиной.
@@ -51,6 +73,7 @@ async function openStream(
 	cfg: ProxyConfig,
 	role: LlmRole,
 	req: LlmRequest,
+	apiKey: string,
 	signal: AbortSignal,
 	onAttempt: (n: number, model: string, fallback: boolean) => void
 ): Promise<AttemptResult> {
@@ -69,7 +92,7 @@ async function openStream(
 			try {
 				const headers: Record<string, string> = {
 					'Content-Type': 'application/json',
-					Authorization: `Bearer ${cfg.apiKey ?? ''}`
+					Authorization: `Bearer ${apiKey}`
 				};
 				if (cfg.referer) headers['HTTP-Referer'] = cfg.referer;
 				if (cfg.title) headers['X-Title'] = cfg.title;
@@ -118,8 +141,14 @@ export async function* streamCompletion(
 		yield { type: 'error', message: `неизвестная роль: ${roleStr}`, code: 'bad_role' };
 		return;
 	}
-	if (!cfg.apiKey) {
-		yield { type: 'error', message: 'не задан OPENROUTER_API_KEY на бэкенде', code: 'no_key' };
+	// Ключ приходит из фронтенда (управляется в UI); env — опциональный сид.
+	const apiKey = req.apiKey ?? cfg.apiKey;
+	if (!apiKey) {
+		yield {
+			type: 'error',
+			message: 'нет ключа OpenRouter: добавьте ключ в настройках приложения',
+			code: 'no_key'
+		};
 		return;
 	}
 	const role: LlmRole = roleStr;
@@ -130,7 +159,7 @@ export async function* streamCompletion(
 
 	let opened: AttemptResult;
 	try {
-		opened = await openStream(cfg, role, req, signal, (n, model, fb) => {
+		opened = await openStream(cfg, role, req, apiKey, signal, (n, model, fb) => {
 			attempts = n;
 			usedModel = model;
 			usedFallback = fb;

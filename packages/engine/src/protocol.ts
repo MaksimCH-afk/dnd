@@ -17,6 +17,11 @@ export interface ChatMessage {
 /** Тело запроса `POST /llm/{role}`. Промпт уже собран движком. */
 export interface LlmRequest {
 	messages: ChatMessage[];
+	/**
+	 * Ключ OpenRouter из фронтенда (управляется в UI). Прокси stateless: если
+	 * ключ не передан, использует опциональный сид из env (локальный запуск).
+	 */
+	apiKey?: string;
 	/** Переопределение модели (иначе бэкенд берёт из конфига роли). */
 	model?: string;
 	temperature?: number;
@@ -25,6 +30,19 @@ export interface LlmRequest {
 	tools?: unknown;
 	/** Запросить переключение на фоллбэк-профиль (тёмная сцена). */
 	preferFallback?: boolean;
+}
+
+/** Тело `POST /verify` — проверка валидности ключа OpenRouter. */
+export interface VerifyKeyRequest {
+	apiKey: string;
+}
+
+/** Ответ `POST /verify`. */
+export interface VerifyKeyResponse {
+	ok: boolean;
+	/** Сколько моделей доступно по ключу (если удалось получить список). */
+	modelCount?: number;
+	error?: string;
 }
 
 /** События SSE-потока от `POST /llm/{role}`. */
@@ -51,7 +69,8 @@ export interface LlmResponseMeta {
 /** Ответ `GET /health`: доступность + раскладка моделей по ролям. */
 export interface HealthResponse {
 	ok: boolean;
-	hasApiKey: boolean;
+	/** Есть ли опциональный сид-ключ в env прокси (ключ обычно приходит из UI). */
+	hasEnvKey: boolean;
 	models: Record<string, { model: string; alternative?: string }>;
 	version: string;
 }

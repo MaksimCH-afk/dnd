@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { settings, saveSettings } from '$lib/settings.svelte';
-	import { checkHealth } from '$lib/llm';
+	import { keys, setKey, clearKey } from '$lib/keys.svelte';
+	import { checkHealth, verifyKey } from '$lib/llm';
 	import type { HealthResponse } from '@rpg/engine';
 
 	interface Props {
@@ -11,6 +12,37 @@
 	let health = $state<HealthResponse | null>(null);
 	let healthError = $state('');
 	let checking = $state(false);
+
+	// --- Управление ключом OpenRouter ---
+	let keyDraft = $state(keys.openrouter);
+	let showKey = $state(false);
+	let keyDirty = $derived(keyDraft.trim() !== keys.openrouter);
+	let verifying = $state(false);
+	let keyStatus = $state<{ ok: boolean; text: string } | null>(null);
+
+	function saveKey() {
+		setKey(keyDraft);
+		keyStatus = { ok: true, text: 'Сохранён' };
+	}
+	function deleteKey() {
+		clearKey();
+		keyDraft = '';
+		keyStatus = null;
+	}
+	async function checkKey() {
+		verifying = true;
+		keyStatus = null;
+		try {
+			const r = await verifyKey(settings.proxyUrl, keyDraft.trim());
+			keyStatus = r.ok
+				? { ok: true, text: `Действителен${r.modelCount ? ` · ${r.modelCount} моделей` : ''}` }
+				: { ok: false, text: r.error ?? 'отклонён' };
+		} catch (e) {
+			keyStatus = { ok: false, text: (e as Error).message };
+		} finally {
+			verifying = false;
+		}
+	}
 
 	async function probe() {
 		checking = true;
@@ -37,6 +69,39 @@
 		<button class="close" onclick={onclose} aria-label="Закрыть">✕</button>
 	</header>
 
+	<div class="field">
+		<span>Ключ OpenRouter</span>
+		<div class="keyrow">
+			<input
+				class="mono"
+				type={showKey ? 'text' : 'password'}
+				bind:value={keyDraft}
+				placeholder="sk-or-v1-…"
+				autocomplete="off"
+				spellcheck="false"
+			/>
+			<button class="ghost" onclick={() => (showKey = !showKey)} aria-label="Показать/скрыть">
+				{showKey ? '🙈' : '👁'}
+			</button>
+		</div>
+		<div class="keyactions">
+			<button onclick={saveKey} disabled={!keyDirty || !keyDraft.trim()}>Сохранить</button>
+			<button onclick={checkKey} disabled={verifying || !keyDraft.trim()}>
+				{verifying ? 'Проверяю…' : 'Проверить'}
+			</button>
+			<button class="danger" onclick={deleteKey} disabled={!keys.openrouter && !keyDraft}>Удалить</button>
+		</div>
+		{#if keyStatus}
+			<span class="mono" class:ok={keyStatus.ok} class:err={!keyStatus.ok}>
+				{keyStatus.ok ? '✓' : '✕'} {keyStatus.text}
+			</span>
+		{/if}
+		<small class="hint">
+			Ключ хранится в этом браузере (localStorage) и отправляется прокси при каждом ходе.
+			Прокси сам ключи не хранит.
+		</small>
+	</div>
+
 	<label class="field">
 		<span>Адрес прокси</span>
 		<input class="mono" bind:value={settings.proxyUrl} onchange={commit} placeholder="http://localhost:8787" />
@@ -47,7 +112,7 @@
 		<div class="probe">
 			<button onclick={probe} disabled={checking}>{checking ? 'Проверяю…' : 'Проверить'}</button>
 			{#if health}
-				<span class="ok mono">✓ v{health.version} · ключ: {health.hasApiKey ? 'есть' : 'нет'}</span>
+				<span class="ok mono">✓ v{health.version}{health.hasEnvKey ? ' · env-сид' : ''}</span>
 			{:else if healthError}
 				<span class="err mono">✕ {healthError}</span>
 			{/if}
@@ -84,8 +149,8 @@
 	</label>
 
 	<p class="note">
-		Ключ OpenRouter хранится только на бэкенде-прокси (см. <code class="mono">apps/proxy/.env</code>).
-		Прямой вызов из PWA — опция будущих фаз.
+		Прокси stateless: хранит и проксирует только LLM-вызовы, без игрового состояния.
+		Канон игры — в git-репозитории (синхронизация — Фаза 1).
 	</p>
 </div>
 
@@ -174,6 +239,48 @@
 	.err {
 		color: var(--danger);
 		font-size: 0.85em;
+	}
+	.keyrow {
+		display: flex;
+		gap: 0.4rem;
+	}
+	.keyrow input {
+		flex: 1;
+	}
+	.ghost {
+		background: var(--surface-raised);
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		padding: 0 0.6rem;
+	}
+	.keyactions {
+		display: flex;
+		gap: 0.4rem;
+		margin-top: 0.5rem;
+		flex-wrap: wrap;
+	}
+	.keyactions button {
+		background: var(--surface-raised);
+		border: 1px solid var(--border);
+		color: var(--text);
+		border-radius: 6px;
+		padding: 0.35rem 0.7rem;
+		font-size: 0.85em;
+	}
+	.keyactions button:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+	.keyactions .danger {
+		color: var(--danger);
+		border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+	}
+	.hint {
+		display: block;
+		margin-top: 0.5rem;
+		font-size: 0.75em;
+		color: var(--text-dim);
+		line-height: 1.4;
 	}
 	.models {
 		list-style: none;

@@ -8,8 +8,10 @@ import type {
 	HealthResponse,
 	LlmRequest,
 	LlmRole,
-	LlmStreamEvent
+	LlmStreamEvent,
+	VerifyKeyResponse
 } from '@rpg/engine';
+import { getKey } from './keys.svelte';
 
 export interface StreamHandlers {
 	onDelta?: (text: string) => void;
@@ -22,6 +24,22 @@ export async function checkHealth(proxyUrl: string, signal?: AbortSignal): Promi
 	const res = await fetch(`${proxyUrl}/health`, { signal });
 	if (!res.ok) throw new Error(`health ${res.status}`);
 	return (await res.json()) as HealthResponse;
+}
+
+/** Проверка ключа OpenRouter через прокси (`POST /verify`). */
+export async function verifyKey(
+	proxyUrl: string,
+	apiKey: string,
+	signal?: AbortSignal
+): Promise<VerifyKeyResponse> {
+	const res = await fetch(`${proxyUrl}/verify`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ apiKey }),
+		signal
+	});
+	if (!res.ok) return { ok: false, error: `прокси ответил ${res.status}` };
+	return (await res.json()) as VerifyKeyResponse;
 }
 
 export interface StreamOptions extends Omit<LlmRequest, 'messages'> {
@@ -41,7 +59,9 @@ export async function streamLlm(
 	opts: StreamOptions = {}
 ): Promise<string> {
 	const { signal, ...rest } = opts;
-	const body: LlmRequest = { messages, ...rest };
+	// Ключ из стора фронтенда (если в opts не передан явно).
+	const apiKey = rest.apiKey ?? (getKey('openrouter') || undefined);
+	const body: LlmRequest = { messages, ...rest, ...(apiKey ? { apiKey } : {}) };
 
 	const res = await fetch(`${proxyUrl}/llm/${role}`, {
 		method: 'POST',
