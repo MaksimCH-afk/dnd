@@ -61,6 +61,39 @@ export const api = {
 		fetch(`${norm(base)}/campaigns/${id}`, { method: 'DELETE' }).then(() => undefined)
 };
 
+// --- Админ-конфиг (ключи/модели по ролям; пароль в заголовке) ---
+
+export interface AdminConfigView {
+	keysSet: Record<'default' | 'narrator' | 'validator' | 'director' | 'fallback', boolean>;
+	models: Record<'narrator' | 'validator' | 'director' | 'fallback', string>;
+	overridden: { keys: string[]; models: string[] };
+}
+export interface AdminConfigPatch {
+	keys?: Partial<Record<'default' | 'narrator' | 'validator' | 'director' | 'fallback', string>>;
+	models?: Partial<Record<'narrator' | 'validator' | 'director' | 'fallback', string>>;
+}
+
+export const adminApi = {
+	get: async (base: string, password: string): Promise<AdminConfigView> => {
+		const r = await fetch(`${norm(base)}/admin/config`, { headers: { 'X-Admin-Password': password } });
+		if (r.status === 401) throw new Error('неверный пароль');
+		if (r.status === 403) throw new Error('админ-API выключен (нет ADMIN_PASSWORD на сервере)');
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		return (await r.json()) as AdminConfigView;
+	},
+	save: async (base: string, password: string, patch: AdminConfigPatch): Promise<AdminConfigView> => {
+		const r = await fetch(`${norm(base)}/admin/config`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+			body: JSON.stringify(patch)
+		});
+		if (r.status === 401) throw new Error('неверный пароль');
+		if (r.status === 503) throw new Error('БД недоступна — не сохранить');
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		return (await r.json()) as AdminConfigView;
+	}
+};
+
 // --- Ход (SSE) ---
 
 export interface TurnHandlers {

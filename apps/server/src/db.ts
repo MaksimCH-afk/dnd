@@ -55,7 +55,28 @@ export class Db {
 				payload     jsonb
 			);
 			CREATE INDEX IF NOT EXISTS logs_campaign_turn_idx ON logs(campaign_id, turn_id);
+
+			CREATE TABLE IF NOT EXISTS config (
+				id         int PRIMARY KEY DEFAULT 1,
+				data       jsonb NOT NULL DEFAULT '{}'::jsonb,
+				updated_at timestamptz NOT NULL DEFAULT now(),
+				CONSTRAINT config_singleton CHECK (id = 1)
+			);
 		`);
+	}
+
+	/** Сохранённые переопределения конфига (ключи/модели). Пусто — {}. */
+	async getConfigOverrides(): Promise<Record<string, unknown>> {
+		const r = await this.pool.query('SELECT data FROM config WHERE id = 1');
+		return (r.rows[0]?.data as Record<string, unknown>) ?? {};
+	}
+
+	async setConfigOverrides(data: unknown): Promise<void> {
+		await this.pool.query(
+			`INSERT INTO config (id, data, updated_at) VALUES (1, $1, now())
+			 ON CONFLICT (id) DO UPDATE SET data = $1, updated_at = now()`,
+			[JSON.stringify(data)]
+		);
 	}
 
 	async healthy(): Promise<boolean> {

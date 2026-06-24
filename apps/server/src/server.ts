@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import { createCharacter, type CreationChoices, type GameState } from '@rpg/engine';
-import { loadConfig } from './config';
+import { loadConfig, snapshotBaseline, applyOverrides, publicConfigView, type ConfigOverrides } from './config';
 import { Db } from './db';
 import { Campaigns } from './campaigns';
 import { Rag } from './rag';
@@ -8,10 +9,23 @@ import { runTurn, type TurnEvent } from './turn/run';
 import { serveStatic } from './static';
 
 const cfg = loadConfig();
+const baseline = snapshotBaseline(cfg); // env-база (до сохранённых переопределений)
+let overrides: ConfigOverrides = {};
 const db = new Db(cfg);
 const campaigns = new Campaigns(db);
 const rag = new Rag(db, cfg);
 const VERSION = '0.0.0';
+
+/** Проверка пароля админ-панели (заголовок x-admin-password), constant-time. */
+function adminAuthed(req: IncomingMessage): boolean {
+	const pass = cfg.adminPassword;
+	if (!pass) return false; // админ-API выключен, пока не задан ADMIN_PASSWORD
+	const given = req.headers['x-admin-password'];
+	const got = Array.isArray(given) ? given[0] ?? '' : given ?? '';
+	const a = Buffer.from(got);
+	const b = Buffer.from(pass);
+	return a.length === b.length && timingSafeEqual(a, b);
+}
 
 function setCors(req: IncomingMessage, res: ServerResponse): void {
 	const origin = req.headers.origin;
@@ -20,8 +34,8 @@ function setCors(req: IncomingMessage, res: ServerResponse): void {
 		res.setHeader('Access-Control-Allow-Origin', origin);
 		res.setHeader('Vary', 'Origin');
 	}
-	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+	res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Password');
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -122,6 +136,49 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		return;
 	}
 
+	// --- Админ-конфиг (ключи/модели по ролям) ---
+	if (path === '/admin/config') {
+		if (!cfg.adminPassword) {
+			json(res, 403, { error: 'админ-API выключен: задайте ADMIN_PASSWORD на сервере' });
+			return;
+		}
+		if (!adminAuthed(req)) {
+			json(res, 401, { error: 'неверный пароль администратора' });
+			return;
+		}
+		if (req.method === 'GET') {
+			json(res, 200, publicConfigView(cfg, overrides));
+			return;
+		}
+		if (req.method === 'PUT' || req.method === 'POST') {
+			if (!(await db.healthy())) {
+				json(res, 503, { error: 'БД недоступна — сохранить настройки нельзя' });
+				return;
+			}
+			const body = await readJson<ConfigOverrides>(req);
+			// merge по полям: непустая строка — задать, "" — очистить (вернуть к env), отсутствует — не трогать
+			const next: ConfigOverrides = {
+				keys: { ...(overrides.keys ?? {}) },
+				models: { ...(overrides.models ?? {}) }
+			};
+			for (const [k, v] of Object.entries(body.keys ?? {})) {
+				if (typeof v !== 'string') continue;
+				if (v.trim()) (next.keys as Record<string, string>)[k] = v.trim();
+				else delete (next.keys as Record<string, string>)[k];
+			}
+			for (const [k, v] of Object.entries(body.models ?? {})) {
+				if (typeof v !== 'string') continue;
+				if (v.trim()) (next.models as Record<string, string>)[k] = v.trim();
+				else delete (next.models as Record<string, string>)[k];
+			}
+			overrides = next;
+			await db.setConfigOverrides(overrides);
+			applyOverrides(cfg, baseline, overrides);
+			json(res, 200, publicConfigView(cfg, overrides));
+			return;
+		}
+	}
+
 	const m = path.match(/^\/campaigns\/([\w-]+)(\/(load|save|snapshots))?$/);
 	if (m) {
 		const id = m[1]!;
@@ -168,6 +225,15 @@ async function main(): Promise<void> {
 	try {
 		await db.migrate();
 		console.log('[server] миграции БД применены');
+		try {
+			overrides = (await db.getConfigOverrides()) as ConfigOverrides;
+			applyOverrides(cfg, baseline, overrides);
+			const ovK = Object.keys(overrides.keys ?? {}).length;
+			const ovM = Object.keys(overrides.models ?? {}).length;
+			if (ovK || ovM) console.log(`[server] применены сохранённые переопределения: ключей ${ovK}, моделей ${ovM}`);
+		} catch (e) {
+			console.error('[server] не удалось загрузить переопределения конфига:', (e as Error).message);
+		}
 	} catch (e) {
 		console.error('[server] ВНИМАНИЕ: БД недоступна, миграции не применены:', (e as Error).message);
 	}

@@ -10,6 +10,8 @@ export interface ServerConfig {
 	embedderModel: string;
 	/** Каталог собранного тонкого клиента (apps/web/build). Пусто — не раздавать статику. */
 	webDir: string | undefined;
+	/** Пароль админ-панели (env ADMIN_PASSWORD). Пусто — админ-API выключен. */
+	adminPassword: string | undefined;
 	models: AppModelConfig;
 	/** Ключ по умолчанию + переопределения по ролям. */
 	keys: {
@@ -56,6 +58,7 @@ export function loadConfig(): ServerConfig {
 		title: process.env.OPENROUTER_TITLE || undefined,
 		embedderModel: process.env.EMBEDDER_MODEL || 'Xenova/bge-m3',
 		webDir: process.env.WEB_DIR || undefined,
+		adminPassword: process.env.ADMIN_PASSWORD || undefined,
 		models: buildModels(),
 		keys: {
 			default: process.env.OPENROUTER_API_KEY || undefined,
@@ -72,4 +75,66 @@ export function keyForRole(cfg: ServerConfig, role: LlmRole, preferFallback = fa
 	if (role === 'narrator' && preferFallback && cfg.keys.fallback) return cfg.keys.fallback;
 	const own = cfg.keys[role as 'narrator' | 'validator' | 'director'];
 	return own || cfg.keys.default;
+}
+
+// --- Рантайм-переопределения (админ-панель) поверх env-базы ---
+
+type KeyRole = 'default' | 'narrator' | 'validator' | 'director' | 'fallback';
+type ModelRoleKey = 'narrator' | 'validator' | 'director' | 'fallback';
+
+/** Что админ может переопределить и сохранить в БД (поверх env). */
+export interface ConfigOverrides {
+	keys?: Partial<Record<KeyRole, string>>;
+	models?: Partial<Record<ModelRoleKey, string>>;
+}
+
+export interface ConfigBaseline {
+	keys: ServerConfig['keys'];
+	models: AppModelConfig;
+}
+
+/** Снимок env-базы (до наложения сохранённых переопределений). */
+export function snapshotBaseline(cfg: ServerConfig): ConfigBaseline {
+	return { keys: { ...cfg.keys }, models: structuredClone(cfg.models) };
+}
+
+/** Наложить переопределения на базу и применить к cfg (мутирует cfg.keys/cfg.models). */
+export function applyOverrides(cfg: ServerConfig, base: ConfigBaseline, ov: ConfigOverrides): void {
+	const keys: ServerConfig['keys'] = { ...base.keys };
+	for (const role of ['default', 'narrator', 'validator', 'director', 'fallback'] as KeyRole[]) {
+		const v = ov.keys?.[role];
+		if (v) keys[role] = v; // непустое значение переопределяет; пустое/отсутствует → env-база
+	}
+	cfg.keys = keys;
+
+	const models = structuredClone(base.models);
+	if (ov.models?.narrator) models.models.narrator.model = ov.models.narrator;
+	if (ov.models?.validator) models.models.validator.model = ov.models.validator;
+	if (ov.models?.director) models.models.director.model = ov.models.director;
+	if (ov.models?.fallback) models.models.fallback_narrator.model = ov.models.fallback;
+	cfg.models = models;
+}
+
+/** Безопасная для клиента картина конфига: какие ключи заданы (без значений) + модели. */
+export function publicConfigView(cfg: ServerConfig, ov: ConfigOverrides) {
+	return {
+		keysSet: {
+			default: Boolean(cfg.keys.default),
+			narrator: Boolean(cfg.keys.narrator),
+			validator: Boolean(cfg.keys.validator),
+			director: Boolean(cfg.keys.director),
+			fallback: Boolean(cfg.keys.fallback)
+		},
+		models: {
+			narrator: cfg.models.models.narrator.model,
+			validator: cfg.models.models.validator.model,
+			director: cfg.models.models.director.model,
+			fallback: cfg.models.models.fallback_narrator.model
+		},
+		// какие именно поля заданы переопределением (чтобы UI показал «из админки» vs «из env»)
+		overridden: {
+			keys: Object.keys(ov.keys ?? {}).filter((k) => (ov.keys as Record<string, string>)[k]),
+			models: Object.keys(ov.models ?? {}).filter((k) => (ov.models as Record<string, string>)[k])
+		}
+	};
 }
