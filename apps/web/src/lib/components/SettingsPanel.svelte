@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { settings, saveSettings } from '$lib/settings.svelte';
-	import { keys, setKey, clearKey } from '$lib/keys.svelte';
-	import { checkHealth, verifyKey } from '$lib/llm';
+	import { keys, setKey, setRoleKey, clearKey, clearRoleKey, KEY_ROLES } from '$lib/keys.svelte';
+	import { checkHealth } from '$lib/llm';
 	import { ragStatus, ensureEmbedder } from '$lib/rag.svelte';
 	import { ensureRepo } from '$lib/gitsync';
 	import { logState, bugBundle, clearLogs } from '$lib/logbus.svelte';
 	import { game } from '$lib/game.svelte';
+	import KeyRow from './KeyRow.svelte';
 	import type { HealthResponse } from '@rpg/engine';
 
 	interface Props {
@@ -16,37 +17,7 @@
 	let health = $state<HealthResponse | null>(null);
 	let healthError = $state('');
 	let checking = $state(false);
-
-	// --- Управление ключом OpenRouter ---
-	let keyDraft = $state(keys.openrouter);
-	let showKey = $state(false);
-	let keyDirty = $derived(keyDraft.trim() !== keys.openrouter);
-	let verifying = $state(false);
-	let keyStatus = $state<{ ok: boolean; text: string } | null>(null);
-
-	function saveKey() {
-		setKey(keyDraft);
-		keyStatus = { ok: true, text: 'Сохранён' };
-	}
-	function deleteKey() {
-		clearKey();
-		keyDraft = '';
-		keyStatus = null;
-	}
-	async function checkKey() {
-		verifying = true;
-		keyStatus = null;
-		try {
-			const r = await verifyKey(settings.proxyUrl, keyDraft.trim());
-			keyStatus = r.ok
-				? { ok: true, text: `Действителен${r.modelCount ? ` · ${r.modelCount} моделей` : ''}` }
-				: { ok: false, text: r.error ?? 'отклонён' };
-		} catch (e) {
-			keyStatus = { ok: false, text: (e as Error).message };
-		} finally {
-			verifying = false;
-		}
-	}
+	let showRoleKeys = $state(false);
 
 	async function probe() {
 		checking = true;
@@ -108,35 +79,33 @@
 	</header>
 
 	<div class="field">
-		<span>Ключ OpenRouter</span>
-		<div class="keyrow">
-			<input
-				class="mono"
-				type={showKey ? 'text' : 'password'}
-				bind:value={keyDraft}
-				placeholder="sk-or-v1-…"
-				autocomplete="off"
-				spellcheck="false"
-			/>
-			<button class="ghost" onclick={() => (showKey = !showKey)} aria-label="Показать/скрыть">
-				{showKey ? '🙈' : '👁'}
-			</button>
-		</div>
-		<div class="keyactions">
-			<button onclick={saveKey} disabled={!keyDirty || !keyDraft.trim()}>Сохранить</button>
-			<button onclick={checkKey} disabled={verifying || !keyDraft.trim()}>
-				{verifying ? 'Проверяю…' : 'Проверить'}
-			</button>
-			<button class="danger" onclick={deleteKey} disabled={!keys.openrouter && !keyDraft}>Удалить</button>
-		</div>
-		{#if keyStatus}
-			<span class="mono" class:ok={keyStatus.ok} class:err={!keyStatus.ok}>
-				{keyStatus.ok ? '✓' : '✕'} {keyStatus.text}
-			</span>
+		<span>Ключи OpenRouter</span>
+		<KeyRow
+			label="Общий ключ (по умолчанию)"
+			hint="используется для роли, у которой свой ключ не задан"
+			initial={keys.openrouter}
+			proxyUrl={settings.proxyUrl}
+			onsave={(v) => setKey(v, 'openrouter')}
+			ondelete={() => clearKey('openrouter')}
+		/>
+		<button class="toggle-roles" onclick={() => (showRoleKeys = !showRoleKeys)}>
+			{showRoleKeys ? '▾' : '▸'} Отдельные ключи по ролям ({KEY_ROLES.length})
+		</button>
+		{#if showRoleKeys}
+			{#each KEY_ROLES as r (r.role)}
+				<KeyRow
+					label={r.label}
+					hint={r.hint}
+					initial={keys.roles[r.role]}
+					proxyUrl={settings.proxyUrl}
+					onsave={(v) => setRoleKey(r.role, v)}
+					ondelete={() => clearRoleKey(r.role)}
+				/>
+			{/each}
 		{/if}
 		<small class="hint">
-			Ключ хранится в этом браузере (localStorage) и отправляется прокси при каждом ходе.
-			Прокси сам ключи не хранит.
+			Ключи хранятся в этом браузере (localStorage) и шлются прокси при каждом ходе.
+			Прокси сам ключи не хранит. Для тёмной сцены у Ведущего используется ключ «Фоллбэк».
 		</small>
 	</div>
 
@@ -371,12 +340,6 @@
 		width: 100%;
 		margin-bottom: 0.5rem;
 	}
-	.ghost {
-		background: var(--surface-raised);
-		border: 1px solid var(--border);
-		border-radius: 6px;
-		padding: 0 0.6rem;
-	}
 	.keyactions {
 		display: flex;
 		gap: 0.4rem;
@@ -395,16 +358,21 @@
 		opacity: 0.4;
 		cursor: not-allowed;
 	}
-	.keyactions .danger {
-		color: var(--danger);
-		border-color: color-mix(in srgb, var(--danger) 40%, transparent);
-	}
 	.hint {
 		display: block;
 		margin-top: 0.5rem;
 		font-size: 0.75em;
 		color: var(--text-dim);
 		line-height: 1.4;
+	}
+	.toggle-roles {
+		background: none;
+		border: none;
+		color: var(--link);
+		font-size: 0.82em;
+		padding: 0.4rem 0;
+		cursor: pointer;
+		text-align: left;
 	}
 	.check {
 		display: flex;

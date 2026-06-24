@@ -11,7 +11,7 @@ import type {
 	LlmStreamEvent,
 	VerifyKeyResponse
 } from '@rpg/engine';
-import { getKey } from './keys.svelte';
+import { getRoleKey, type KeyRole } from './keys.svelte';
 import { logEvent } from './logbus.svelte';
 
 export interface StreamHandlers {
@@ -60,8 +60,9 @@ export async function streamLlm(
 	opts: StreamOptions = {}
 ): Promise<string> {
 	const { signal, ...rest } = opts;
-	// Ключ из стора фронтенда (если в opts не передан явно).
-	const apiKey = rest.apiKey ?? (getKey('openrouter') || undefined);
+	// Ключ выбирается по роли (тёмная сцена у Ведущего → ключ фоллбэка).
+	const keyRole: KeyRole = role === 'narrator' && rest.preferFallback ? 'fallback' : (role as KeyRole);
+	const apiKey = rest.apiKey ?? (getRoleKey(keyRole) || undefined);
 	const body: LlmRequest = { messages, ...rest, ...(apiKey ? { apiKey } : {}) };
 
 	const res = await fetch(`${proxyUrl}/llm/${role}`, {
