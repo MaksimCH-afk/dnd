@@ -13,9 +13,11 @@
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsc --noEmit",
-    "test": "node --test"
+    "test": "node --import tsx --test src/*.test.ts"
   },
   "devDependencies": {
+    "@types/node": "^22.5.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.5.4"
   }
 }
