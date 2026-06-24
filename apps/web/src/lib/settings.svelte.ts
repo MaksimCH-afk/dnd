@@ -19,6 +19,8 @@ export interface Settings {
 	gitBranch: string;
 	/** LLM-валидатор утечек знания (доп. вызов модели на ход). */
 	validatorEnabled: boolean;
+	/** Пройден ли первый запуск (онбординг). */
+	onboarded: boolean;
 }
 
 const STORAGE_KEY = 'rpg.settings.v0';
@@ -33,7 +35,8 @@ const DEFAULTS: Settings = {
 	gitEnabled: false,
 	gitRepoUrl: '',
 	gitBranch: 'main',
-	validatorEnabled: false
+	validatorEnabled: false,
+	onboarded: false
 };
 
 function load(): Settings {

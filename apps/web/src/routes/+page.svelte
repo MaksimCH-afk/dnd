@@ -11,6 +11,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { game, loadGame, createCampaign, commitState, applyTurn, checkSeedsNow, directorPropose, importBundle, resolveCombat, campaigns } from '$lib/game.svelte';
 	import CampaignsPanel from '$lib/components/CampaignsPanel.svelte';
+	import OnboardingWizard from '$lib/components/OnboardingWizard.svelte';
 	import { isDarkScene } from '$lib/darkscene';
 	import { buildSaveBundle } from '$lib/reports';
 	import { commitAndPush, pull, readCanon } from '$lib/gitsync';
@@ -29,6 +30,7 @@
 	let showRules = $state(false);
 	let showCreation = $state(false);
 	let showCampaigns = $state(false);
+	let showOnboarding = $state(false);
 	let ledgerOpen = $state(true);
 	let highlight = $state<Set<string>>(new Set());
 
@@ -36,7 +38,10 @@
 	const topStatus = $derived(game.state ? statusFields(game.state) : []);
 
 	onMount(() => {
-		void loadGame();
+		void (async () => {
+			await loadGame();
+			if (!settings.onboarded && campaigns.campaigns.length === 0) showOnboarding = true;
+		})();
 	});
 
 	async function onCreated(state: GameState) {
@@ -318,6 +323,13 @@
 {/if}
 {#if showCreation}
 	<CreationWizard oncreated={onCreated} oncancel={() => (showCreation = false)} />
+{/if}
+{#if showOnboarding}
+	<OnboardingWizard
+		onnew={() => { showOnboarding = false; showCreation = true; }}
+		onload={() => { showOnboarding = false; addEntry('system', 'Загрузить сейв: кнопка «Загрузить сейв» в гроссбухе, или /go при включённой git-синхронизации.'); }}
+		onclose={() => (showOnboarding = false)}
+	/>
 {/if}
 {#if showCampaigns}
 	<CampaignsPanel
