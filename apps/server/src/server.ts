@@ -3,11 +3,13 @@ import { createCharacter, type CreationChoices, type GameState } from '@rpg/engi
 import { loadConfig } from './config';
 import { Db } from './db';
 import { Campaigns } from './campaigns';
+import { Rag } from './rag';
 import { runTurn, type TurnEvent } from './turn/run';
 
 const cfg = loadConfig();
 const db = new Db(cfg);
 const campaigns = new Campaigns(db);
+const rag = new Rag(db, cfg);
 const VERSION = '0.0.0';
 
 function setCors(req: IncomingMessage, res: ServerResponse): void {
@@ -110,7 +112,7 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		});
 		const send = (e: TurnEvent) => res.write(`data: ${JSON.stringify(e)}\n\n`);
 		try {
-			await runTurn(cfg, db, campaigns, body.campaignId, body.input, send);
+			await runTurn(cfg, db, campaigns, rag, body.campaignId, body.input, send);
 		} catch (e) {
 			send({ type: 'error', message: (e as Error).message, code: 'internal' });
 		} finally {

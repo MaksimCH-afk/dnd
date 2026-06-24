@@ -30,6 +30,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@huggingface/transformers':
+        specifier: ^3.0.0
+        version: 3.8.1
       '@rpg/engine':
         specifier: workspace:*
         version: link:../../packages/engine

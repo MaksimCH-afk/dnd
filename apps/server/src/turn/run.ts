@@ -19,6 +19,7 @@ import type { ServerConfig } from '../config';
 import type { Db } from '../db';
 import type { Campaigns } from '../campaigns';
 import { streamCompletion } from '../openrouter';
+import type { Rag } from '../rag';
 import { buildNarratorMessages } from './prompt';
 import { extractOps, isDarkScene } from './ops-extract';
 import { statusFields, threadModel } from './status';
@@ -60,6 +61,7 @@ export async function runTurn(
 	cfg: ServerConfig,
 	db: Db,
 	campaigns: Campaigns,
+	rag: Rag,
 	campaignId: string,
 	input: string,
 	send: Send
@@ -93,9 +95,12 @@ export async function runTurn(
 		void logEvent(db, campaignId, turnId, seq++, 'mechanics', 'info', { kind: 'combat', ended: r.ended, heroHpDelta: r.heroHpDelta });
 	}
 
-	// 2) Проза нарратора (стрим). Тёмная сцена → фоллбэк-профиль.
+	// 2) Проза нарратора (стрим). RAG-ретривал из pgvector (№2). Тёмная сцена → фоллбэк.
+	const retrieved = await rag.retrieve(campaignId, `${input} ${state.session.current_moment}`);
+	const factsBefore = state.facts.length;
+	const npcBefore = state.npc.length;
 	const preferFallback = isDarkScene(input, state.session.current_moment);
-	const messages = buildNarratorMessages(state, input, [], outcomes);
+	const messages = buildNarratorMessages(state, input, retrieved, outcomes);
 	let prose = '';
 	let model: string | undefined;
 	let usedFallback = false;
@@ -169,4 +174,12 @@ export async function runTurn(
 		rejected: res.rejected.map((r) => ({ reason: r.reason })),
 		state
 	});
+
+	// 7) Индексация новых фактов/NPC в pgvector (после ответа — не задерживает прозу).
+	for (const f of state.facts.slice(factsBefore)) {
+		await rag.index(campaignId, 'fact', f.id, f.text, f.created_day);
+	}
+	for (const n of state.npc.slice(npcBefore)) {
+		await rag.index(campaignId, 'npc', n.id, `${n.core.name}: ${n.core.role}, ${n.core.character}`, day);
+	}
 }
