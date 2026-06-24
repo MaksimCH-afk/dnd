@@ -7,6 +7,7 @@ import { Campaigns } from './campaigns';
 import { Rag } from './rag';
 import { runTurn, type TurnEvent } from './turn/run';
 import { serveStatic } from './static';
+import { importGame, type ImportDocs } from './import';
 
 const cfg = loadConfig();
 const baseline = snapshotBaseline(cfg); // env-база (до сохранённых переопределений)
@@ -109,6 +110,24 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		const state = createCharacter(body.choices);
 		const id = await campaigns.create(body.choices.name, state);
 		json(res, 200, { id, state });
+		return;
+	}
+
+	// POST /campaigns/import  { docs } — собрать партию из 4 документов (LLM → движок)
+	if (req.method === 'POST' && path === '/campaigns/import') {
+		const body = await readJson<{ docs?: ImportDocs }>(req);
+		const d = body.docs;
+		if (!d || !(d.character || d.inventory || d.npcs || d.session)) {
+			json(res, 400, { error: 'нужны docs (хотя бы один непустой документ)' });
+			return;
+		}
+		try {
+			const { state, name, warnings } = await importGame(cfg, d);
+			const id = await campaigns.create(name, state);
+			json(res, 200, { id, state, warnings });
+		} catch (e) {
+			json(res, 502, { error: `импорт не удался: ${(e as Error).message}` });
+		}
 		return;
 	}
 

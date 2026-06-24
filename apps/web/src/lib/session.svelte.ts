@@ -63,6 +63,15 @@ export async function createCampaign(choices: CreationChoices): Promise<void> {
 	];
 }
 
+/** Импортировать партию из 4 документов (сервер собирает состояние через LLM+движок). */
+export async function importCampaign(docs: { character: string; inventory: string; npcs: string; session: string }): Promise<string[]> {
+	const { id, state, warnings } = await api.importGame(settings.serverUrl, docs);
+	session.campaignId = id;
+	session.state = state;
+	session.entries = entriesFromState(state);
+	return warnings ?? [];
+}
+
 /** Отправить ход: стрим прозы + system-события + финальное состояние с сервера. */
 export async function sendTurn(input: string): Promise<void> {
 	if (!session.campaignId || session.busy) return;

@@ -8,8 +8,9 @@
 		onclose: () => void;
 		onnew: () => void;
 		onpicked: () => void;
+		onimport: () => void;
 	}
-	let { onclose, onnew, onpicked }: Props = $props();
+	let { onclose, onnew, onpicked, onimport }: Props = $props();
 
 	let list = $state<CampaignRow[]>([]);
 	let error = $state('');
@@ -68,6 +69,7 @@
 	{/if}
 
 	<button class="newgame" onclick={onnew}>+ Новая кампания</button>
+	<button class="link import" onclick={onimport}>⇪ Импорт из документов</button>
 	<small class="note">Кампании хранятся на сервере (Postgres). Открываются с любого устройства — состояние общее.</small>
 </div>
 
@@ -88,5 +90,6 @@
 	.del { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; color: var(--text-dim); padding: 0 .7rem; }
 	.del:hover { color: var(--danger); }
 	.newgame { width: 100%; background: var(--accent); color: var(--on-accent); border: none; border-radius: var(--radius); padding: .6rem; font-size: .95em; }
+	.import { display: block; width: 100%; text-align: center; margin-top: .5rem; background: none; border: none; color: var(--link); text-decoration: underline; font-size: .85em; cursor: pointer; }
 	.note { display: block; margin-top: .8rem; font-size: .75em; color: var(--text-dim); line-height: 1.4; }
 </style>

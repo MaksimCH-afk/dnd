@@ -52,6 +52,8 @@ export const api = {
 	campaigns: (base: string) => jget<{ campaigns: CampaignRow[] }>(base, '/campaigns').then((d) => d.campaigns),
 	newCampaign: (base: string, choices: CreationChoices) =>
 		jpost<{ id: string; state: GameState }>(base, '/campaigns/new', { choices }),
+	importGame: (base: string, docs: { character: string; inventory: string; npcs: string; session: string }) =>
+		jpost<{ id: string; state: GameState; warnings: string[] }>(base, '/campaigns/import', { docs }),
 	load: (base: string, id: string) => jpost<{ state: GameState }>(base, `/campaigns/${id}/load`).then((d) => d.state),
 	save: (base: string, id: string, state: GameState, snapshot?: string) =>
 		jpost<{ ok: boolean }>(base, `/campaigns/${id}/save`, { state, snapshot }),

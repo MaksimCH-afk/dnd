@@ -7,6 +7,7 @@
 	import CampaignsPanel from '$lib/components/CampaignsPanel.svelte';
 	import ReferencePanel from '$lib/components/ReferencePanel.svelte';
 	import CreationWizard from '$lib/components/CreationWizard.svelte';
+	import ImportWizard from '$lib/components/ImportWizard.svelte';
 	import OnboardingWizard from '$lib/components/OnboardingWizard.svelte';
 	import Ledger from '$lib/components/Ledger.svelte';
 	import { settings, toggleTheme } from '$lib/settings.svelte';
@@ -17,6 +18,7 @@
 	let showSettings = $state(false);
 	let showCampaigns = $state(false);
 	let showReference = $state(false);
+	let showImport = $state(false);
 	let showCreation = $state(false);
 	let showOnboarding = $state(false);
 	let ledgerOpen = $state(true);
@@ -123,6 +125,13 @@
 		onclose={() => (showCampaigns = false)}
 		onnew={() => { showCampaigns = false; showCreation = true; }}
 		onpicked={() => (showCampaigns = false)}
+		onimport={() => { showCampaigns = false; showImport = true; }}
+	/>
+{/if}
+{#if showImport}
+	<ImportWizard
+		oncancel={() => (showImport = false)}
+		onimported={() => { showImport = false; addSystem('⇪ Партия импортирована. Продолжай ход.'); }}
 	/>
 {/if}
 {#if showReference}<ReferencePanel onclose={() => (showReference = false)} />{/if}
