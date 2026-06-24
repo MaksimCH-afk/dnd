@@ -3,6 +3,7 @@
 	import Composer from '$lib/components/Composer.svelte';
 	import StatusThread from '$lib/components/StatusThread.svelte';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
+	import RulesPanel from '$lib/components/RulesPanel.svelte';
 	import { chronicle, addEntry } from '$lib/chronicle.svelte';
 	import { settings } from '$lib/settings.svelte';
 	import { streamLlm } from '$lib/llm';
@@ -10,6 +11,7 @@
 
 	let busy = $state(false);
 	let showSettings = $state(false);
+	let showRules = $state(false);
 	let ledgerOpen = $state(true);
 
 	async function handleSend(text: string) {
@@ -79,6 +81,7 @@
 			<span class="sync" title="Синхронизация — Фаза 1">⊙</span>
 			Пролог · хроника
 		</div>
+		<button class="settings-btn" onclick={() => (showRules = true)} aria-label="Файлы правил" title="Файлы правил">📖</button>
 		<button class="settings-btn" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>
 	</header>
 
@@ -106,6 +109,10 @@
 
 {#if showSettings}
 	<SettingsPanel onclose={() => (showSettings = false)} />
+{/if}
+
+{#if showRules}
+	<RulesPanel onclose={() => (showRules = false)} />
 {/if}
 
 <style>
