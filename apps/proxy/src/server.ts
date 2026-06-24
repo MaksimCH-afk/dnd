@@ -14,7 +14,9 @@ const VERSION = '0.0.0';
 
 function setCors(req: IncomingMessage, res: ServerResponse): void {
 	const origin = req.headers.origin;
-	if (origin && cfg.corsOrigins.includes(origin)) {
+	// '*' в CORS_ORIGINS → отражаем любой origin (удобно для домашней сети/планшета).
+	const allowAny = cfg.corsOrigins.includes('*');
+	if (origin && (allowAny || cfg.corsOrigins.includes(origin))) {
 		res.setHeader('Access-Control-Allow-Origin', origin);
 		res.setHeader('Vary', 'Origin');
 	}
