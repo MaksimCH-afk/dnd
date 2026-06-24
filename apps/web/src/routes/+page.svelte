@@ -9,7 +9,7 @@
 	import CreationWizard from '$lib/components/CreationWizard.svelte';
 	import OnboardingWizard from '$lib/components/OnboardingWizard.svelte';
 	import Ledger from '$lib/components/Ledger.svelte';
-	import { settings } from '$lib/settings.svelte';
+	import { settings, toggleTheme } from '$lib/settings.svelte';
 	import { session, sendTurn, createCampaign, openCampaign, saveGame, checkConnection } from '$lib/session.svelte';
 	import { threadModel, statusFields } from '$lib/status';
 	import type { CreationChoices } from '@rpg/engine';
@@ -83,9 +83,12 @@
 				Пролог
 			{/if}
 		</div>
+	<div class="actions">
 		<button class="icon" onclick={() => (showCampaigns = true)} aria-label="Кампании" title="Кампании">📚</button>
 		<button class="icon" onclick={() => (showReference = true)} aria-label="Справка по моделям" title="Справка: платные модели на роль Ведущего">💳</button>
+		<button class="icon accent" onclick={toggleTheme} aria-label="Сменить тему" title={settings.theme === 'dark' ? 'Светлая тема (пергамент)' : 'Тёмная тема (тушь)'}>{settings.theme === 'dark' ? '☀' : '☾'}</button>
 		<button class="icon" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>
+	</div>
 	</header>
 
 	<main class="layout" class:ledger-open={ledgerOpen}>
@@ -134,20 +137,22 @@
 
 <style>
 	.app { height: 100dvh; display: flex; flex-direction: column; }
-	.topbar { display: flex; align-items: center; gap: .6rem; padding: .5rem var(--gutter); border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
-	.topbar .scene { flex: 1; display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; color: var(--text-dim); font-size: .78em; overflow: hidden; align-items: center; }
-	.chip { white-space: nowrap; padding: .1rem .5rem; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 999px; }
+	.topbar { display: flex; align-items: center; gap: .6rem; height: 54px; padding: 0 16px; border-bottom: 1px solid var(--rule); background: var(--surface); flex-shrink: 0; }
+	.topbar .scene { flex: 1; display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; color: var(--text); font-size: .72rem; overflow: hidden; align-items: center; font-family: var(--font-mono); }
+	.chip { white-space: nowrap; padding: .1rem .55rem; background: var(--chip-bg); border: 1px solid var(--chip-br); border-radius: 999px; }
 	.sync { color: var(--danger); opacity: .7; }
 	.sync.on { color: var(--accent); }
-	.icon { background: none; border: none; color: var(--text-dim); font-size: 1.1rem; padding: .2rem .4rem; }
+	.actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+	.icon { background: none; border: none; color: var(--text-dim); font-size: 1.05rem; padding: .2rem .4rem; line-height: 1; transition: color .15s; }
 	.icon:hover { color: var(--accent); }
+	.icon.accent { color: var(--accent); }
 	.layout { flex: 1; display: grid; grid-template-columns: 1fr auto; min-height: 0; }
 	.layout.ledger-open { grid-template-columns: 1fr auto minmax(240px, 320px); }
 	.chronicle-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 	.ledger { border-left: 1px solid var(--border); background: var(--surface); padding: 1.2rem; overflow-y: auto; }
 	.empty-ledger { color: var(--text-dim); text-align: center; margin-top: 2rem; }
 	.empty-ledger h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
-	.newgame { display: block; width: 100%; margin: 1rem 0 .6rem; background: var(--accent); color: var(--ink-900); border: none; border-radius: var(--radius); padding: .6rem 1.2rem; font-size: .95em; }
+	.newgame { display: block; width: 100%; margin: 1rem 0 .6rem; background: var(--accent); color: var(--on-accent); border: none; border-radius: var(--radius); padding: .6rem 1.2rem; font-size: .95em; }
 	.link { background: none; border: none; color: var(--link); text-decoration: underline; font-size: .85em; cursor: pointer; }
 	.thread-legend { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: .3rem; font-size: .72em; color: var(--accent); }
 	.thread-legend small { color: var(--text-dim); }

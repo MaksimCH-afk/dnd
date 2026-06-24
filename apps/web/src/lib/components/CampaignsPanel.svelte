@@ -87,6 +87,6 @@
 	.cid { font-size: .68em; color: var(--text-dim); }
 	.del { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; color: var(--text-dim); padding: 0 .7rem; }
 	.del:hover { color: var(--danger); }
-	.newgame { width: 100%; background: var(--accent); color: var(--ink-900); border: none; border-radius: var(--radius); padding: .6rem; font-size: .95em; }
+	.newgame { width: 100%; background: var(--accent); color: var(--on-accent); border: none; border-radius: var(--radius); padding: .6rem; font-size: .95em; }
 	.note { display: block; margin-top: .8rem; font-size: .75em; color: var(--text-dim); line-height: 1.4; }
 </style>

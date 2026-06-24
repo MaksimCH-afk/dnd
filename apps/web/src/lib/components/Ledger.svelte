@@ -223,16 +223,19 @@
 	}
 	section h3 {
 		margin: 0;
-		font-size: 1.1rem;
+		font-size: 1.4rem;
+		font-weight: 600;
+		color: var(--text);
 	}
 	section h4 {
 		margin: 0 0 0.5rem;
-		font-size: 0.75rem;
+		font-size: 0.72rem;
+		font-weight: 700;
 		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: var(--text-dim);
-		border-bottom: 1px solid var(--border);
-		padding-bottom: 0.3rem;
+		letter-spacing: 0.2em;
+		color: var(--warm);
+		border-bottom: 1px solid var(--rule);
+		padding-bottom: 0.4rem;
 	}
 	.sub {
 		color: var(--text-dim);

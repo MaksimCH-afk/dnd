@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Playfair+Display:wght@500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  input,textarea,select,button{font-family:inherit}
+  textarea{resize:none}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:rgba(120,110,90,0.35);border-radius:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  @keyframes mblink{0%,80%,100%{opacity:0.25}40%{opacity:1}}
+  @keyframes mfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="{{ rootVars }}">
+<div style="min-height:100vh;background:var(--bg,#ECE6D6);color:var(--ink,#2C281F);font-family:'Lora',Georgia,serif;position:relative;width:100%">
+
+<sc-if value="{{ showStart }}" hint-placeholder-val="{{ true }}">
+  <div style="min-height:100vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--soft,#7C7565)">Текстовое приключение</span>
+      <div style="display:flex;gap:16px;font-size:15px;color:var(--soft,#7C7565);align-items:center">
+        <span onClick="{{ openLore }}" style="cursor:pointer">❯</span>
+        <span onClick="{{ toggleTheme }}" style="cursor:pointer;color:var(--accent,#2F7D72)">{{ themeIco }}</span>
+        <span onClick="{{ openSettings }}" style="cursor:pointer">⚙</span>
+      </div>
+    </div>
+
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:24px 20px 60px">
+      <div style="width:100%;max-width:600px">
+        <div style="text-align:center;margin-bottom:38px">
+          <div style="display:inline-flex;align-items:center;gap:16px;color:var(--warm,#9C5B3B);margin-bottom:18px">
+            <span style="width:40px;height:1px;background:var(--warm,#9C5B3B);opacity:0.5"></span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.34em;text-transform:uppercase">Упорядоченное</span>
+            <span style="width:40px;height:1px;background:var(--warm,#9C5B3B);opacity:0.5"></span>
+          </div>
+          <h1 style="font-family:'Playfair Display',serif;font-weight:700;font-size:52px;line-height:1.05;color:var(--ink,#2C281F);letter-spacing:0.01em">Хроника</h1>
+          <p style="font-family:'Lora',serif;font-style:italic;font-size:17px;line-height:1.65;color:var(--soft,#7C7565);margin:16px auto 0;max-width:440px">Живой магический мир, большие ставки и древние тайны. Кем ты войдёшь в эту историю?</p>
+        </div>
+
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--soft,#7C7565);text-align:center;margin-bottom:14px">Быстрый старт</div>
+        <div style="display:grid;grid-template-columns:{{ archCols }};gap:12px;margin-bottom:30px">
+          <sc-for list="{{ archetypes }}" as="a" hint-placeholder-count="3">
+            <div onClick="{{ a.go }}" style="border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:10px;padding:15px 16px;cursor:pointer;background:var(--paper2,#E5DDC9)" style-hover="border-color:var(--accent,#2F7D72)">
+              <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:600;color:var(--ink,#2C281F)">{{ a.name }}</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--warm,#9C5B3B);margin:3px 0 7px;letter-spacing:0.04em">{{ a.meta }}</div>
+              <div style="font-size:13px;line-height:1.5;color:var(--soft,#7C7565)">{{ a.blurb }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--soft,#7C7565);margin-bottom:14px">или опиши себя сам</div>
+        <div style="display:flex;align-items:flex-end;gap:10px">
+          <textarea value="{{ input }}" onChange="{{ onInput }}" placeholder="Опиши, кто ты и где ты, или просто скажи: «начнём»…" rows="2" style="flex:1;border:1.5px solid var(--accent,#2F7D72);border-radius:12px;padding:13px 15px;background:var(--paper,#ECE6D6);color:var(--ink,#2C281F);font-family:'Lora',serif;font-style:italic;font-size:16px;line-height:1.45;outline:none"></textarea>
+          <button onClick="{{ startCustom }}" style="border:none;border-radius:12px;padding:0 22px;height:52px;background:var(--accent,#2F7D72);color:var(--paper2,#E5DDC9);font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:0.04em;cursor:pointer;white-space:nowrap">Начать</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ showGame }}" hint-placeholder-val="{{ true }}">
+  <div style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;height:54px;padding:0 16px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));background:var(--paper2,#E5DDC9);flex-shrink:0">
+      <div onClick="{{ openMenu }}" style="font-size:17px;color:var(--soft,#7C7565);cursor:pointer">☰</div>
+      <div style="display:flex;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink,#2C281F);overflow:hidden">
+        <sc-for list="{{ statChips }}" as="c" hint-placeholder-count="3">
+          <span style="{{ c.style }}">{{ c.text }}</span>
+        </sc-for>
+      </div>
+      <div style="display:flex;gap:13px;font-size:14px;color:var(--soft,#7C7565);align-items:center;flex-shrink:0">
+        <span onClick="{{ openMap }}" style="cursor:pointer">⚑</span>
+        <span onClick="{{ openDirector }}" style="cursor:pointer">✦</span>
+        <span onClick="{{ openLore }}" style="cursor:pointer">❯</span>
+        <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}"><span onClick="{{ openSheet }}" style="cursor:pointer;font-size:15px">▤</span></sc-if>
+        <span onClick="{{ toggleTheme }}" style="cursor:pointer;font-size:15px;color:var(--accent,#2F7D72)">{{ themeIco }}</span>
+        <span onClick="{{ openSettings }}" style="cursor:pointer">⚙</span>
+      </div>
+    </div>
+
+    <div style="flex:1;display:flex;min-height:0;position:relative">
+
+      <div style="{{ chronicleStyle }}" ref="{{ chronRef }}" data-chron="1">
+        <div style="max-width:660px;margin:0 auto">
+
+          <sc-if value="{{ combat }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid var(--warm,#9C5B3B);border-radius:10px;padding:14px 16px;margin-bottom:28px;background:var(--paper2,#E5DDC9)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:9px"><span style="color:var(--warm,#9C5B3B);font-size:15px">⚔</span><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--warm,#9C5B3B)">Бой · непрерывное время</span></div>
+                <span onClick="{{ endCombat }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--soft,#7C7565);cursor:pointer;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:14px;padding:2px 10px">отступить</span>
+              </div>
+              <div style="display:grid;grid-template-columns:{{ combatCols }};gap:16px">
+                <div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565);margin-bottom:4px">Противник</div>
+                  <div style="font-family:'Playfair Display',serif;font-size:19px;font-weight:600;color:var(--ink,#2C281F)">{{ enemy }}</div>
+                  <div style="font-size:13px;font-style:italic;color:var(--soft,#7C7565);margin-top:2px;line-height:1.45">{{ enemyDesc }}</div>
+                </div>
+                <div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565);margin-bottom:4px">Ты</div>
+                  <div style="font-family:'Playfair Display',serif;font-size:19px;font-weight:600;color:{{ condColor }}">{{ condWord }}</div>
+                  <div style="font-size:13px;font-style:italic;color:var(--soft,#7C7565);margin-top:2px">{{ stamWord }}</div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="text-align:center;font-family:'Playfair Display',serif;font-size:13px;letter-spacing:0.42em;text-transform:uppercase;color:var(--soft,#7C7565);padding-bottom:8px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin-bottom:34px">Хроника</div>
+
+          <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="2">
+            <div style="margin-bottom:30px;animation:mfade .4s ease both">
+              <sc-if value="{{ m.isYou }}" hint-placeholder-val="{{ true }}">
+                <div style="border-left:2px solid var(--accent,#2F7D72);padding:1px 0 1px 16px">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--soft,#7C7565);margin-bottom:5px">Ты</div>
+                  <div style="{{ youStyle }}">{{ m.text }}</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ m.isGm }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:13px">
+                  <span style="width:24px;height:24px;border-radius:5px;background:var(--accent,#2F7D72);color:var(--paper2,#E5DDC9);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">◈</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565)">Режиссёр · мягкий хук</span>
+                </div>
+                <p style="{{ proseStyle }}">
+                  <span style="{{ dropCapStyle }}">{{ m.first }}</span>{{ m.rest }}
+                </p>
+              </sc-if>
+              <sc-if value="{{ m.isSystem }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent,#2F7D72);font-style:normal">
+                  <span style="opacity:0.7">⟐</span><span>{{ m.text }}</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ m.isMeta }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px dashed var(--chipBr,rgba(44,40,31,0.3));border-radius:10px;padding:13px 15px;background:var(--chipBg,rgba(44,40,31,0.04))">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--accent,#2F7D72);margin-bottom:6px">Мета · Мастер честно</div>
+                  <div style="font-size:15px;line-height:1.65;color:var(--ink,#2C281F)">{{ m.text }}</div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+
+          <sc-if value="{{ dlgActive }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid var(--accent,#2F7D72);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:var(--paper2,#E5DDC9)">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--accent,#2F7D72);margin-bottom:10px">{{ dlgNpc }} · ответить</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ dlgChoices }}" as="ch" hint-placeholder-count="3"><div onClick="{{ ch.pick }}" style="border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:9px;padding:10px 14px;cursor:pointer;font-size:15px;color:var(--ink,#2C281F)" style-hover="border-color:var(--accent,#2F7D72)">{{ ch.t }}</div></sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ thinking }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:9px;opacity:0.75">
+              <span style="width:24px;height:24px;border-radius:5px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--soft,#7C7565);flex-shrink:0">✎</span>
+              <span style="font-style:italic;font-size:15px;color:var(--soft,#7C7565)">Мастер пишет</span>
+              <span style="display:inline-flex;gap:3px"><span style="width:4px;height:4px;border-radius:50%;background:var(--soft,#7C7565);animation:mblink 1.2s infinite"></span><span style="width:4px;height:4px;border-radius:50%;background:var(--soft,#7C7565);animation:mblink 1.2s infinite .2s"></span><span style="width:4px;height:4px;border-radius:50%;background:var(--soft,#7C7565);animation:mblink 1.2s infinite .4s"></span></span>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <sc-if value="{{ showBackdrop }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closeSheet }}" style="position:fixed;inset:0;background:rgba(20,18,14,0.42);z-index:35"></div>
+      </sc-if>
+
+      <div style="{{ sidebarStyle }}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between">
+          <div>
+            <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:600;color:var(--ink,#2C281F);line-height:1.1">Ангвар</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--soft,#7C7565);margin-top:4px">светлый эльф, 250 · преступник</div>
+          </div>
+          <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}"><span onClick="{{ closeSheet }}" style="cursor:pointer;font-size:18px;color:var(--soft,#7C7565)">✕</span></sc-if>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin:20px 0 4px">
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565)">Состояние</div><div style="font-size:15px;margin-top:2px;color:{{ condColor }}">{{ condWord }}</div></div>
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565)">Силы тела</div><div style="font-size:15px;margin-top:2px">{{ stamWord }}</div></div>
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565)">След</div><div style="font-size:15px;margin-top:2px">чисто</div></div>
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565)">Режим</div><div style="font-size:15px;margin-top:2px">Тихий шаг</div></div>
+        </div>
+
+        <sc-if value="{{ woundsShown }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:18px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Раны</div>
+            <sc-for list="{{ woundItems }}" as="w" hint-placeholder-count="1"><div style="margin-top:8px;font-size:15px;color:var(--ink,#2C281F)">{{ w.desc }} <span style="font-size:12px;color:{{ w.color }}">· {{ w.stage }}</span></div></sc-for>
+          </div>
+        </sc-if>
+
+        <div style="margin-top:18px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Сила · магия</div>
+          <div style="display:flex;gap:4px;margin-top:10px">
+            <sc-for list="{{ powerPips }}" as="p" hint-placeholder-count="4"><span style="{{ p }}"></span></sc-for>
+          </div>
+          <div style="font-size:14px;margin-top:7px;color:{{ powerColor }}">{{ powerLabel }} <span style="color:var(--soft,#7C7565);font-size:12px">· {{ powerHint }}</span></div>
+        </div>
+
+        <div style="margin-top:18px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Бой</div><div style="font-size:15px;margin-top:8px">кинжал <span style="color:var(--soft,#7C7565);font-size:13px">· быстрый клинок</span></div></div>
+
+        <sc-if value="{{ traitsShown }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:18px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Особенности</div>
+            <sc-for list="{{ traitItems }}" as="tr" hint-placeholder-count="1"><div style="margin-top:9px"><div style="font-size:15px;color:var(--ink,#2C281F)">{{ tr.key }}</div><div style="font-size:13px;color:var(--soft,#7C7565);line-height:1.4">{{ tr.desc }}</div></div></sc-for>
+          </div>
+        </sc-if>
+
+        <div style="margin-top:18px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Интрига</div>
+          <div style="display:flex;justify-content:space-between;font-size:14px;margin-top:8px;color:var(--ink,#2C281F)"><span style="color:var(--soft,#7C7565)">Прикрытия</span><span>—</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:14px;margin-top:4px;color:var(--ink,#2C281F)"><span style="color:var(--soft,#7C7565)">Схроны</span><span>0</span></div>
+        </div>
+
+        <div style="margin-top:18px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Инвентарь</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--soft,#7C7565);margin-top:10px">Надето</div>
+          <sc-for list="{{ wornItems }}" as="it" hint-placeholder-count="2"><div onClick="{{ it.open }}" style="font-size:15px;margin-top:5px;cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="color:var(--accent,#2F7D72)"><span style="width:5px;height:5px;border-radius:2px;background:var(--accent,#2F7D72)"></span>{{ it.name }}</div></sc-for>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--soft,#7C7565);margin-top:12px">В сумке</div>
+          <sc-for list="{{ bagItems }}" as="it" hint-placeholder-count="2"><div onClick="{{ it.open }}" style="font-size:15px;margin-top:5px;cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="color:var(--accent,#2F7D72)"><span style="width:5px;height:5px;border-radius:2px;background:var(--chipBr,rgba(44,40,31,0.4))"></span>{{ it.name }}</div></sc-for>
+        </div>
+
+        <div style="margin-top:18px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Сюжет</div><div style="font-size:14px;margin-top:8px;line-height:1.5">Арка: спасение · простолюдины · Юг</div></div>
+
+        <div style="margin-top:18px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Капитал</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--ink,#2C281F);margin-top:9px">{{ capitalStr }}</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:13px;margin-top:6px"><span style="font-family:'JetBrains Mono',monospace;color:var(--accent,#2F7D72)">+6 GP 6 SP 1 MP</span><span style="color:var(--soft,#7C7565)">стартовый капитал</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="flex-shrink:0;border-top:1px solid var(--rule,rgba(44,40,31,0.14));background:var(--paper2,#E5DDC9);padding:12px 7%">
+      <div style="max-width:660px;margin:0 auto">
+        <sc-if value="{{ combat }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">
+            <sc-for list="{{ stanceChips }}" as="s" hint-placeholder-count="5"><span onClick="{{ s.sel }}" title="{{ s.hint }}" style="{{ s.style }}">{{ s.label }}</span></sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ notCombat }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ showCmds }}" hint-placeholder-val="{{ false }}">
+            <div style="border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:10px;background:var(--paper,#ECE6D6);overflow:hidden;margin-bottom:10px">
+              <sc-for list="{{ cmdList }}" as="c" hint-placeholder-count="4"><div onClick="{{ c.run }}" style="display:flex;align-items:baseline;gap:12px;padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--rule,rgba(44,40,31,0.08))" style-hover="background:var(--chipBg,rgba(44,40,31,0.05))"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent,#2F7D72);width:62px;flex-shrink:0">{{ c.cmd }}</span><span style="font-size:14px;color:var(--soft,#7C7565)">{{ c.hint }}</span></div></sc-for>
+            </div>
+          </sc-if>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent,#2F7D72)">
+            <span onClick="{{ insertGo }}" style="padding:3px 12px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;cursor:pointer">/go</span>
+            <span onClick="{{ doSave }}" style="padding:3px 12px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;cursor:pointer">/save</span>
+            <span onClick="{{ insertAsk }}" style="padding:3px 12px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;cursor:pointer">/ask</span>
+            <span onClick="{{ openShop }}" style="padding:3px 12px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;cursor:pointer">/shop</span>
+          </div>
+        </sc-if>
+        <div style="display:flex;align-items:flex-end;gap:10px;border:1.5px solid var(--accent,#2F7D72);border-radius:12px;padding:9px 12px;background:var(--paper,#ECE6D6)">
+          <textarea value="{{ input }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" rows="1" placeholder="{{ inputPlaceholder }}" style="flex:1;border:none;background:transparent;color:var(--ink,#2C281F);font-family:'Lora',serif;font-style:italic;font-size:16px;line-height:1.5;outline:none;max-height:120px"></textarea>
+          <span onClick="{{ send }}" style="width:36px;height:36px;border-radius:9px;background:var(--accent,#2F7D72);color:var(--paper2,#E5DDC9);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;flex-shrink:0">➤</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</sc-if>
+
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;z-index:46;background:rgba(20,18,14,0.42)"></div>
+  <div style="{{ menuStyle }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="color:var(--warm,#9C5B3B)">☰</span><h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--ink,#2C281F)">Журнал</h2></div>
+      <span onClick="{{ closeMenu }}" style="cursor:pointer;font-size:20px;color:var(--soft,#7C7565)">✕</span>
+    </div>
+    <p style="font-size:13px;font-style:italic;color:var(--soft,#7C7565);margin-bottom:18px">точки сохранения канона · кросс-девайс через git</p>
+
+    <button onClick="{{ doSave }}" style="width:100%;border:1px solid var(--accent,#2F7D72);border-radius:10px;padding:12px;background:transparent;color:var(--accent,#2F7D72);font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.04em;cursor:pointer;margin-bottom:18px">⟐ Сохранить сейчас (/save)</button>
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin-bottom:12px">Сохранения</div>
+    <div style="display:flex;flex-direction:column;gap:0">
+      <sc-for list="{{ saves }}" as="s" hint-placeholder-count="2">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid var(--rule,rgba(44,40,31,0.1))">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent,#2F7D72);margin-top:3px;flex-shrink:0">#{{ s.hash }}</span>
+          <div><div style="font-size:15px;color:var(--ink,#2C281F)">{{ s.note }}</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--soft,#7C7565);margin-top:1px">{{ s.when }}</div></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="border-top:1px solid var(--rule,rgba(44,40,31,0.14));margin-top:18px;padding-top:16px">
+      <div onClick="{{ openMap }}" style="font-size:15px;color:var(--ink,#2C281F);cursor:pointer;display:flex;align-items:center;gap:9px;margin-bottom:14px" style-hover="color:var(--accent,#2F7D72)"><span>⚑</span>Карта окрестностей</div>
+      <div onClick="{{ openShop }}" style="font-size:15px;color:var(--ink,#2C281F);cursor:pointer;display:flex;align-items:center;gap:9px;margin-bottom:14px" style-hover="color:var(--accent,#2F7D72)"><span>⚖</span>Лавка торговца</div>
+      <div onClick="{{ backToStart }}" style="font-size:15px;color:var(--soft,#7C7565);cursor:pointer;display:flex;align-items:center;gap:9px" style-hover="color:var(--ink,#2C281F)"><span>←</span>Вернуться к началу</div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ invOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeInv }}" style="position:fixed;inset:0;z-index:52;display:flex;align-items:center;justify-content:center;background:rgba(20,18,14,0.5);padding:20px">
+    <div onClick="{{ stop }}" style="width:min(380px,94vw);background:var(--paper,#ECE6D6);border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:10px;padding:22px 24px;box-shadow:0 20px 60px rgba(20,18,14,0.4)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h3 style="font-family:'Playfair Display',serif;font-size:21px;font-weight:600;color:var(--ink,#2C281F)">{{ invName }}</h3>
+        <span onClick="{{ closeInv }}" style="cursor:pointer;font-size:18px;color:var(--soft,#7C7565)">✕</span>
+      </div>
+      <p style="font-size:14px;line-height:1.6;color:var(--soft,#7C7565);margin-bottom:18px">{{ invDesc }}</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ invActions }}" as="ac" hint-placeholder-count="3"><button onClick="{{ ac.run }}" style="text-align:left;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:9px;padding:10px 14px;background:transparent;color:var(--ink,#2C281F);font-family:'Lora',serif;font-size:15px;cursor:pointer" style-hover="border-color:var(--accent,#2F7D72)">{{ ac.label }}</button></sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ growthOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:53;display:flex;align-items:center;justify-content:center;background:rgba(14,12,9,0.7);padding:22px">
+    <div style="width:min(460px,94vw);background:var(--paper,#ECE6D6);border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:12px;padding:26px 28px;box-shadow:0 20px 60px rgba(20,18,14,0.5)">
+      <div style="text-align:center;margin-bottom:6px"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:var(--warm,#9C5B3B)">Поворотный момент</span></div>
+      <h2 style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--ink,#2C281F);text-align:center;margin-bottom:10px">Тот бой изменил тебя</h2>
+      <p style="font-size:14px;line-height:1.6;color:var(--soft,#7C7565);text-align:center;margin-bottom:20px">Выбери, как пережитое отложилось в тебе. Это черта словами, а не цифра.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <sc-for list="{{ growthOpts }}" as="g" hint-placeholder-count="3"><div onClick="{{ g.pick }}" style="border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:10px;padding:13px 16px;cursor:pointer" style-hover="border-color:var(--accent,#2F7D72)"><div style="font-family:'Playfair Display',serif;font-size:17px;color:var(--ink,#2C281F)">{{ g.key }}</div><div style="font-size:13px;color:var(--soft,#7C7565);margin-top:2px">{{ g.desc }}</div></div></sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ mapOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeMap }}" style="position:fixed;inset:0;z-index:51;display:flex;align-items:center;justify-content:center;background:rgba(20,18,14,0.5);padding:20px">
+    <div onClick="{{ stop }}" style="{{ mapCardStyle }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="color:var(--warm,#9C5B3B)">⚑</span><h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--ink,#2C281F)">Карта окрестностей</h2></div>
+        <span onClick="{{ closeMap }}" style="cursor:pointer;font-size:20px;color:var(--soft,#7C7565)">✕</span>
+      </div>
+      <div style="position:relative;width:100%;height:380px;border:1px solid var(--rule,rgba(44,40,31,0.18));border-radius:8px;background:var(--paper2,#E5DDC9);overflow:hidden">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+          <g stroke="#9C7B52" stroke-width="0.4" stroke-dasharray="1.4 1.6" fill="none" opacity="0.55">
+            <line x1="41" y1="47" x2="30" y2="15"></line>
+            <line x1="41" y1="47" x2="66" y2="27"></line>
+            <line x1="41" y1="47" x2="75" y2="57"></line>
+            <line x1="41" y1="47" x2="29" y2="71"></line>
+            <line x1="29" y1="71" x2="53" y2="87"></line>
+            <line x1="75" y1="57" x2="53" y2="87"></line>
+          </g>
+        </svg>
+        <sc-for list="{{ mapNodes }}" as="n" hint-placeholder-count="6"><div onClick="{{ n.go }}" style="{{ n.style }}"><span style="{{ n.dot }}"></span><span style="{{ n.label }}">{{ n.name }}</span></div></sc-for>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:12px"><span style="font-size:13px;color:var(--soft,#7C7565)">Ты здесь</span><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--accent,#2F7D72)">{{ location }}</span></div>
+      <p style="font-size:12px;line-height:1.5;color:var(--soft,#7C7565);margin-top:10px">Выбери место, чтобы отправиться туда. Расстояния и время в пути мастер ведёт повествованием.</p>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ shopOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeShop }}" style="position:fixed;inset:0;z-index:51;display:flex;align-items:center;justify-content:center;background:rgba(20,18,14,0.5);padding:20px">
+    <div onClick="{{ stop }}" style="{{ shopCardStyle }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="color:var(--warm,#9C5B3B)">⚖</span><h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--ink,#2C281F)">Лавка торговца</h2></div>
+        <span onClick="{{ closeShop }}" style="cursor:pointer;font-size:20px;color:var(--soft,#7C7565)">✕</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))"><span style="font-size:13px;color:var(--soft,#7C7565)">При тебе</span><span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--accent,#2F7D72)">{{ capitalStr }}</span></div>
+      <div>
+        <sc-for list="{{ shopItems }}" as="it" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--rule,rgba(44,40,31,0.08))">
+            <div style="font-size:16px;color:var(--ink,#2C281F)">{{ it.name }} <span style="font-size:13px;color:var(--soft,#7C7565);font-style:italic">· {{ it.q }}</span></div>
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0"><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--soft,#7C7565)">{{ it.priceLabel }}</span><button onClick="{{ it.buy }}" style="{{ it.btnStyle }}">Купить</button></div>
+          </div>
+        </sc-for>
+      </div>
+      <p style="font-size:12px;line-height:1.5;color:var(--soft,#7C7565);margin-top:14px">Цены — ориентир; в игре торговец называет их по логике места и торга. Качество описано словами, без цифр-бонусов.</p>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ outcomeShown }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:54;display:flex;align-items:center;justify-content:center;background:{{ outcomeBg }};padding:24px">
+    <div style="width:min(460px,94vw);text-align:center">
+      <div style="display:inline-flex;align-items:center;gap:14px;color:{{ outcomeAccent }};margin-bottom:18px">
+        <span style="width:38px;height:1px;background:{{ outcomeAccent }};opacity:0.6"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.34em;text-transform:uppercase">{{ outcomeKicker }}</span>
+        <span style="width:38px;height:1px;background:{{ outcomeAccent }};opacity:0.6"></span>
+      </div>
+      <h1 style="font-family:'Playfair Display',serif;font-weight:700;font-size:44px;line-height:1.1;color:{{ outcomeTitleColor }};margin-bottom:16px">{{ outcomeTitle }}</h1>
+      <p style="font-family:'Lora',serif;font-style:italic;font-size:17px;line-height:1.7;color:var(--soft,#7C7565);max-width:400px;margin:0 auto 28px">{{ outcomeText }}</p>
+      <button onClick="{{ outcomeAction }}" style="border:none;border-radius:12px;padding:13px 30px;background:{{ outcomeAccent }};color:var(--paper,#ECE6D6);font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:0.04em;cursor:pointer">{{ outcomeBtn }}</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ directorOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeDirector }}" style="position:fixed;inset:0;z-index:48;background:rgba(20,18,14,0.42)"></div>
+  <div style="{{ directorStyle }}">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="color:var(--accent,#2F7D72);font-size:18px">✦</span><h2 style="font-family:'Playfair Display',serif;font-size:23px;font-weight:700;color:var(--ink,#2C281F)">Режиссёр</h2></div>
+      <span onClick="{{ closeDirector }}" style="cursor:pointer;font-size:20px;color:var(--soft,#7C7565)">✕</span>
+    </div>
+    <p style="font-size:13px;font-style:italic;color:var(--soft,#7C7565);margin-bottom:20px">ведёт историю незаметно — обдумывает поворот…</p>
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin-bottom:12px">Сюжетная арка</div>
+    <div style="font-family:'Playfair Display',serif;font-size:18px;color:var(--ink,#2C281F)">спасение · простолюдины · Юг</div>
+    <div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--soft,#7C7565);margin-bottom:5px"><span>Напряжение</span><span>нарастает</span></div><div style="height:6px;border-radius:4px;background:var(--chipBg,rgba(44,40,31,0.08));overflow:hidden"><div style="width:46%;height:100%;background:var(--warm,#9C5B3B)"></div></div></div>
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin:24px 0 12px">Активные нити</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:11px"><span style="width:8px;height:8px;border-radius:50%;background:var(--warm,#9C5B3B);margin-top:6px;flex-shrink:0"></span><div><div style="font-size:15px;color:var(--ink,#2C281F)">След / подозрение</div><div style="font-size:13px;color:var(--soft,#7C7565)">растёт — стража начинает коситься</div></div></div>
+      <div style="display:flex;gap:11px"><span style="width:8px;height:8px;border-radius:50%;background:var(--accent,#2F7D72);margin-top:6px;flex-shrink:0"></span><div><div style="font-size:15px;color:var(--ink,#2C281F)">Двойник в притоне</div><div style="font-size:13px;color:var(--soft,#7C7565)">представлен — намерения неясны</div></div></div>
+      <div style="display:flex;gap:11px"><span style="width:8px;height:8px;border-radius:50%;background:var(--faint,#A89E89);margin-top:6px;flex-shrink:0"></span><div><div style="font-size:15px;color:var(--ink,#2C281F)">Некромант в склепах</div><div style="font-size:13px;color:var(--soft,#7C7565)">не раскрыто — отложенная угроза</div></div></div>
+    </div>
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin:24px 0 12px">Тёмные цены</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:8px;padding:9px 11px"><div style="font-size:13px;color:var(--ink,#2C281F)">🩸 Коррупция</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--soft,#7C7565);margin-top:2px">не тронута</div></div>
+      <div style="border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:8px;padding:9px 11px"><div style="font-size:13px;color:var(--ink,#2C281F)">🕷 Деградация</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--soft,#7C7565);margin-top:2px">не тронута</div></div>
+      <div style="border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:8px;padding:9px 11px"><div style="font-size:13px;color:var(--ink,#2C281F)">🧠 Распад памяти</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--soft,#7C7565);margin-top:2px">не тронута</div></div>
+      <div style="border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:8px;padding:9px 11px"><div style="font-size:13px;color:var(--ink,#2C281F)">☀️ Годы жизни</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--soft,#7C7565);margin-top:2px">не тронуты</div></div>
+    </div>
+    <p style="font-size:12px;line-height:1.5;color:var(--soft,#7C7565);margin-top:10px">Цены растут лишь за по-настоящему переступающие действия — редко и веско.</p>
+
+    <button onClick="{{ startCombat }}" style="width:100%;margin-top:22px;border:1px solid var(--warm,#9C5B3B);border-radius:10px;padding:12px;background:transparent;color:var(--warm,#9C5B3B);font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.04em;cursor:pointer">⚔ Разыграть столкновение (демо)</button>
+  </div>
+</sc-if>
+
+<sc-if value="{{ loreOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(20,18,14,0.5);padding:20px">
+    <div style="{{ loreCardStyle }}">
+      <div style="{{ loreLayout }}">
+        <div style="{{ loreNavStyle }}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:9px"><span style="color:var(--warm,#9C5B3B)">❯</span><h2 style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink,#2C281F)">Книга мира</h2></div>
+            <span onClick="{{ closeLore }}" style="cursor:pointer;font-size:19px;color:var(--soft,#7C7565)">✕</span>
+          </div>
+          <div style="{{ loreNavInner }}">
+            <sc-for list="{{ loreNav }}" as="n" hint-placeholder-count="5"><span onClick="{{ n.sel }}" style="{{ n.style }}">{{ n.label }}</span></sc-for>
+          </div>
+        </div>
+
+        <div style="flex:1;overflow:auto;padding:24px 28px">
+          <sc-if value="{{ loreWorld }}" hint-placeholder-val="{{ true }}">
+            <h3 style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--ink,#2C281F);margin-bottom:12px">Мир и его законы</h3>
+            <p style="font-size:16px;line-height:1.7;color:var(--ink,#2C281F);margin-bottom:16px">Живой, насыщенный магией мир — часть огромного <span style="font-style:italic">Упорядоченного</span>, структуры сопряжённых миров, пронизанной течениями Истинной Силы. Магия здесь — не проклятие, а сила, ткань реальности и предмет стремлений.</p>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--warm,#9C5B3B);margin:18px 0 10px">Эпохи</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;gap:12px"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent,#2F7D72);width:130px;flex-shrink:0">Эпоха Первых</span><span style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">древние боги правили явной магией; остались руины и опасные артефакты</span></div>
+              <div style="display:flex;gap:12px"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent,#2F7D72);width:130px;flex-shrink:0">Великий Надлом</span><span style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">~1000 лет назад границы миров надорвались; родились Искажённые Земли</span></div>
+              <div style="display:flex;gap:12px"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent,#2F7D72);width:130px;flex-shrink:0">Тёмные века</span><span style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">столетия хаоса; поднялись первые королевства и ордена</span></div>
+              <div style="display:flex;gap:12px"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent,#2F7D72);width:130px;flex-shrink:0">Возрождение</span><span style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">академии, торговля, большая политика — время героев</span></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ loreRaces }}" hint-placeholder-val="{{ false }}">
+            <h3 style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--ink,#2C281F);margin-bottom:16px">Расы</h3>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:'Playfair Display',serif;font-size:17px;color:var(--ink,#2C281F)">Люди</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warm,#9C5B3B)">60–90 лет</span></div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">адаптивны, амбициозны, у власти в большинстве стран</div></div>
+              <div><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:'Playfair Display',serif;font-size:17px;color:var(--ink,#2C281F)">Светлые эльфы</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warm,#9C5B3B)">300–500 лет</span></div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">хрупки, магически одарены, утончённы и высокомерны</div></div>
+              <div><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:'Playfair Display',serif;font-size:17px;color:var(--ink,#2C281F)">Тёмные эльфы (дроу)</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warm,#9C5B3B)">200–400 лет</span></div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">ночное зрение, скрытность, тяга к иллюзиям; встречают недоверие</div></div>
+              <div><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:'Playfair Display',serif;font-size:17px;color:var(--ink,#2C281F)">Гномы</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warm,#9C5B3B)">150–250 лет</span></div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">упрямы, устойчивы к магии, мастера камня и руны</div></div>
+              <div><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:'Playfair Display',serif;font-size:17px;color:var(--ink,#2C281F)">Полурослики</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warm,#9C5B3B)">80–120 лет</span></div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">ловки, удачливы, незаметны — и их недооценивают</div></div>
+              <div><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:'Playfair Display',serif;font-size:17px;color:var(--ink,#2C281F)">Орки</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warm,#9C5B3B)">40–60 лет</span></div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">сильны, выносливы, культ силы и шаманизм; пугают</div></div>
+              <div><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-family:'Playfair Display',serif;font-size:17px;color:var(--ink,#2C281F)">Полуэльфы</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warm,#9C5B3B)">120–180 лет</span></div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">не принадлежат ни одному миру; универсальны, часто одиноки</div></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ loreMagic }}" hint-placeholder-val="{{ false }}">
+            <h3 style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--ink,#2C281F);margin-bottom:12px">Законы магии</h3>
+            <p style="font-size:16px;line-height:1.7;color:var(--ink,#2C281F);margin-bottom:16px">Нет фиксированных «заклинаний» — есть <span style="font-style:italic">Сила</span> и школы. Внутри школы маг творит свободно; что выйдет, решают три оси: <span style="color:var(--warm,#9C5B3B)">Сила</span>, <span style="color:var(--warm,#9C5B3B)">воображение</span>, <span style="color:var(--warm,#9C5B3B)">мастерство</span>.</p>
+            <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+              <div style="flex:1;min-width:200px;border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:8px;padding:11px 13px"><div style="font-family:'Playfair Display',serif;font-size:15px;color:var(--ink,#2C281F)">Черпающие</div><div style="font-size:13px;color:var(--soft,#7C7565);line-height:1.5;margin-top:3px">тянут Силу извне; сильны у источника, гаснут в мёртвых зонах</div></div>
+              <div style="flex:1;min-width:200px;border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:8px;padding:11px 13px"><div style="font-family:'Playfair Display',serif;font-size:15px;color:var(--ink,#2C281F)">Своесильные</div><div style="font-size:13px;color:var(--soft,#7C7565);line-height:1.5;margin-top:3px">носят резерв в себе; колдуют везде, но резерв конечен</div></div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--warm,#9C5B3B);margin-bottom:10px">Школы</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--ink,#2C281F)">Стихийная</span><span style="color:var(--soft,#7C7565);font-size:12px">легальна</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--ink,#2C281F)">Природная</span><span style="color:var(--soft,#7C7565);font-size:12px">терпима</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--ink,#2C281F)">Божественная</span><span style="color:var(--soft,#7C7565);font-size:12px">по культу</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--ink,#2C281F)">Аура</span><span style="color:var(--soft,#7C7565);font-size:12px">редкая</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--ink,#2C281F)">Иллюзии</span><span style="color:#a8503e;font-size:12px">запретна</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--ink,#2C281F)">Кровавая · Тёмная · Разума</span><span style="color:#a8503e;font-size:12px">тёмная цена</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--ink,#2C281F)">Светлая</span><span style="color:var(--soft,#7C7565);font-size:12px">годы жизни</span></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ loreDanger }}" hint-placeholder-val="{{ false }}">
+            <h3 style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--ink,#2C281F);margin-bottom:16px">Опасности мира</h3>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div><div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--ink,#2C281F)">Коренные</div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">волки, медведи, разбойники — предсказуемы</div></div>
+              <div><div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--ink,#2C281F)">Порождения Надлома</div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">мутанты, химеры — непредсказуемы</div></div>
+              <div><div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--ink,#2C281F)">Пришельцы иных планов</div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">демоны, элементали — почти неубиваемы</div></div>
+              <div><div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--ink,#2C281F)">Нежить</div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">плод некромантии и проклятий; гули, тролли регенерируют</div></div>
+              <div style="border-left:2px solid var(--warm,#9C5B3B);padding-left:14px"><div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--ink,#2C281F)">Искажённые Земли</div><div style="font-size:14px;color:var(--soft,#7C7565);line-height:1.5">дикая магия, искажённое время; смертельны и притягательны</div></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ loreMoney }}" hint-placeholder-val="{{ false }}">
+            <h3 style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--ink,#2C281F);margin-bottom:12px">Деньги</h3>
+            <div style="display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--ink,#2C281F);margin-bottom:18px">1 GP <span style="color:var(--soft,#7C7565)">=</span> 10 SP <span style="color:var(--soft,#7C7565)">=</span> 100 MP</div>
+            <p style="font-size:15px;line-height:1.7;color:var(--soft,#7C7565);margin-bottom:14px">Серебро — основная ходовая монета. 1 MP — буханка хлеба; 1 SP — хороший обед или ночь в общем зале; 1 GP — месяц жизни бедняка или хорошее оружие.</p>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--warm,#9C5B3B);margin-bottom:10px">Ориентиры</div>
+            <div style="display:flex;flex-direction:column;gap:7px;font-size:14px">
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--ink,#2C281F)">Койка / комната</span><span style="font-family:'JetBrains Mono',monospace;color:var(--soft,#7C7565)">5 / 10–20 SP</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--ink,#2C281F)">Кинжал</span><span style="font-family:'JetBrains Mono',monospace;color:var(--soft,#7C7565)">10–200 SP</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--ink,#2C281F)">Кольчуга</span><span style="font-family:'JetBrains Mono',monospace;color:var(--soft,#7C7565)">500–1 500 SP</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--ink,#2C281F)">Зелье исцеления</span><span style="font-family:'JetBrains Mono',monospace;color:var(--soft,#7C7565)">50–10 000 SP</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--ink,#2C281F)">Верховая лошадь</span><span style="font-family:'JetBrains Mono',monospace;color:var(--soft,#7C7565)">500–1 000 SP</span></div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(20,18,14,0.5);padding:20px">
+    <div style="{{ settingsCardStyle }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+        <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:var(--ink,#2C281F)">Настройки</h2>
+        <span onClick="{{ closeSettings }}" style="cursor:pointer;font-size:20px;color:var(--soft,#7C7565)">✕</span>
+      </div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin-bottom:14px">Подключение</div>
+      <label style="display:block;font-size:13px;color:var(--soft,#7C7565);margin-bottom:6px">Ключ OpenRouter</label>
+      <input type="password" defaultValue="sk-or-v1-9f3c2a8b1d4e6f7a0c2e" style="width:100%;border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:9px;padding:11px 13px;background:var(--field,#E0D7C2);color:var(--ink,#2C281F);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none">
+      <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">
+        <button style="border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:8px;padding:7px 14px;background:transparent;color:var(--ink,#2C281F);font-size:13px;cursor:pointer">Сохранить</button>
+        <button style="border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:8px;padding:7px 14px;background:transparent;color:var(--ink,#2C281F);font-size:13px;cursor:pointer">Проверить</button>
+        <button style="border:1px solid rgba(160,70,55,0.4);border-radius:8px;padding:7px 14px;background:transparent;color:#a8503e;font-size:13px;cursor:pointer">Удалить</button>
+      </div>
+      <p style="font-size:12px;line-height:1.5;color:var(--soft,#7C7565);margin-top:9px">Ключ хранится в этом браузере и отправляется прокси при каждом ходе. Прокси сам ключи не хранит.</p>
+
+      <label style="display:block;font-size:13px;color:var(--soft,#7C7565);margin:16px 0 6px">Адрес прокси</label>
+      <input type="text" defaultValue="http://localhost:8787" style="width:100%;border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:9px;padding:11px 13px;background:var(--field,#E0D7C2);color:var(--ink,#2C281F);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none">
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin:24px 0 14px">Вид</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <span style="font-size:15px;color:var(--ink,#2C281F)">Тема</span>
+        <div style="display:flex;gap:6px;font-family:'JetBrains Mono',monospace;font-size:12px">
+          <span onClick="{{ setPaper }}" style="{{ paperTabStyle }}">Пергамент</span>
+          <span onClick="{{ setInk }}" style="{{ inkTabStyle }}">Тушь</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+        <span style="font-size:15px;color:var(--ink,#2C281F);white-space:nowrap">Размер текста</span>
+        <input type="range" min="0.85" max="1.4" step="0.05" value="{{ textScale }}" onChange="{{ setScale }}" style="flex:1;accent-color:var(--accent,#2F7D72)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--soft,#7C7565);width:46px;text-align:right">{{ scaleLabel }}</span>
+      </div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin:24px 0 14px">Память и проверки</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:6px">
+        <div><div style="font-size:15px;color:var(--ink,#2C281F)">Локальный поиск по памяти (RAG)</div><p style="font-size:12px;line-height:1.5;color:var(--soft,#7C7565);margin-top:4px">Подтягивает релевантные факты и NPC. Грузит модель-эмбеддер в браузер (первый раз долго).</p></div>
+        <span onClick="{{ toggleRag }}" style="{{ ragSwitch }}"><span style="{{ ragKnob }}"></span></span>
+      </div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-top:14px">
+        <div><div style="font-size:15px;color:var(--ink,#2C281F)">LLM-валидатор утечек знания</div><p style="font-size:12px;line-height:1.5;color:var(--soft,#7C7565);margin-top:4px">Доп. вызов модели на ход: проверяет, не сослался ли NPC на знание вне своей памяти. +латентность.</p></div>
+        <span onClick="{{ toggleLlm }}" style="{{ llmSwitch }}"><span style="{{ llmKnob }}"></span></span>
+      </div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin:24px 0 14px">Синхронизация канона (git)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px">
+        <span style="font-size:15px;color:var(--ink,#2C281F)">Кросс-девайс через git</span>
+        <span onClick="{{ toggleGit }}" style="{{ gitSwitch }}"><span style="{{ gitKnob }}"></span></span>
+      </div>
+      <sc-if value="{{ gitOn }}" hint-placeholder-val="{{ true }}">
+        <input type="text" defaultValue="https://github.com/MaksimCH-afk/dnd" style="width:100%;border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:9px;padding:11px 13px;background:var(--field,#E0D7C2);color:var(--ink,#2C281F);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;margin-bottom:8px">
+        <div style="display:flex;gap:8px">
+          <input type="text" defaultValue="test1" style="flex:1;min-width:0;border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:9px;padding:11px 13px;background:var(--field,#E0D7C2);color:var(--ink,#2C281F);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none">
+          <input type="password" defaultValue="ghp_xxxxxxxxxxxxxxxx" style="flex:1;min-width:0;border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:9px;padding:11px 13px;background:var(--field,#E0D7C2);color:var(--ink,#2C281F);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">
+          <button style="border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:8px;padding:7px 14px;background:transparent;color:var(--ink,#2C281F);font-size:13px;cursor:pointer">Сохранить токен</button>
+          <button style="border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:8px;padding:7px 14px;background:transparent;color:var(--ink,#2C281F);font-size:13px;cursor:pointer">Проверить / клонировать</button>
+        </div>
+        <p style="font-size:12px;line-height:1.5;color:var(--soft,#7C7565);margin-top:9px"><span style="font-family:'JetBrains Mono',monospace">/save</span> коммитит и пушит канон, <span style="font-family:'JetBrains Mono',monospace">/go</span> подтягивает. Токен хранится в браузере.</p>
+      </sc-if>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin:24px 0 14px">Логи</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button style="border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:8px;padding:7px 14px;background:transparent;color:var(--ink,#2C281F);font-size:13px;cursor:pointer">Экспорт bug-bundle</button>
+        <button style="border:1px solid var(--chipBr,rgba(44,40,31,0.22));border-radius:8px;padding:7px 14px;background:transparent;color:var(--ink,#2C281F);font-size:13px;cursor:pointer">Очистить</button>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--soft,#7C7565);margin-left:auto">6 соб.</span>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    theme: 'paper', screen: 'start', settingsOpen: false, sheetOpen: false,
+    loreOpen: false, loreSection: 'world', directorOpen: false, menuOpen: false,
+    invOpen: false, invItem: null, invZone: null, outcome: '',
+    growthOpen: false, shopOpen: false, capMp: 661,
+    dlg: null, wounds: [], mapOpen: false, location: 'Нижний город',
+    traits: [{ key: 'Уличное чутьё', desc: 'чувствуешь засаду и ложь в трущобах' }],
+    textScale: 1, input: '', thinking: false,
+    w: (typeof window !== 'undefined' ? window.innerWidth : 1200),
+    ragOn: false, llmOn: false, gitOn: true,
+    combat: false, enemy: 'Гуль', enemyDesc: '', enemyHp: 58, stance: 'Обычный',
+    hp: 63, hpMax: 63, stam: 90, stamMax: 90, power: 'Полон',
+    worn: ['Кинжал', 'Тёмный плащ'], bag: ['Отмычки', 'Дорожный паёк (неделя)'],
+    saves: [{ when: 'День 1 · утро · весна', note: 'Хроника начата', hash: 'a1f3' }],
+    msgs: []
+  };
+
+  componentDidMount() { this._r = () => this.setState({ w: window.innerWidth }); window.addEventListener('resize', this._r); }
+  scrollChron() {
+    const go = () => {
+      const els = [...document.querySelectorAll('div')].filter(d => { const cs = getComputedStyle(d); return cs.overflowY === 'auto' && d.scrollHeight > d.clientHeight + 4; });
+      const el = els.find(d => !d.textContent.includes('преступник')) || els[0];
+      if (el) el.scrollTop = el.scrollHeight;
+    };
+    [60, 220, 500, 1350].forEach(t => setTimeout(go, t));
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this._r); if (this._t) clearTimeout(this._t); }
+
+  pal() {
+    const paper = { paper:'#ECE6D6', paper2:'#E5DDC9', panel:'#EFEADD', ink:'#2C281F', soft:'#7C7565', faint:'#A89E89', rule:'rgba(44,40,31,0.14)', chipBg:'rgba(44,40,31,0.05)', chipBr:'rgba(44,40,31,0.2)', accent:'#2F7D72', warm:'#9C5B3B', field:'#E0D7C2', bg:'#ECE6D6' };
+    const ink = { paper:'#13171B', paper2:'#191E24', panel:'#1C222A', ink:'#DDD7C9', soft:'#8C8F87', faint:'#5C615C', rule:'rgba(221,215,201,0.12)', chipBg:'rgba(221,215,201,0.04)', chipBr:'rgba(221,215,201,0.16)', accent:'#6FBFB2', warm:'#C98A5B', field:'#222932', bg:'radial-gradient(135% 95% at 50% -12%, #1b2127 0%, #11151a 72%)' };
+    return this.state.theme === 'ink' ? ink : paper;
+  }
+  toVars(o) { const r = {}; Object.keys(o).forEach(k => { r['--' + k] = o[k]; }); return r; }
+
+  shape(msgs) {
+    return msgs.map(m => {
+      const isGm = m.role === 'gm', isYou = m.role === 'you', isSystem = m.role === 'system', isMeta = m.role === 'meta';
+      let first = '', rest = m.text || '';
+      if (isGm && m.text) { const a = [...m.text]; first = a[0]; rest = a.slice(1).join(''); }
+      return { text: m.text, isGm, isYou, isSystem, isMeta, first, rest };
+    });
+  }
+
+  opening() { return 'В полумраке притона Нижнего города Ангвар слышит, как шёпот о грядущем переделе власти скользит между стен. Криминальные кланы уже сплели сети влияния, а за ними скрывается двойник, чьи намерения неопределимы, как отблеск факела на мокром камне. Переступишь порог — и путь поведёт туда, где власть проверяется не силой, а способностью увидеть себя в чужом лице.'; }
+
+  begin(you, gm) {
+    if (this._t) clearTimeout(this._t);
+    this.setState({ screen: 'game', input: '', thinking: false, combat: false, outcome: '', hp: 63, stam: 90, power: 'Полон', menuOpen: false, msgs: [{ role: 'you', text: you }, { role: 'gm', text: gm }] });
+  }
+  startCustom() { const t = this.state.input.trim(); this.begin(t || 'Начнём.', this.opening()); }
+
+  degrade(p) { const o = ['Полон', 'Расходует', 'На исходе', 'Истощён']; const i = o.indexOf(p); return o[Math.min(o.length - 1, i + 1)]; }
+
+  startCombat() {
+    this.setState(s => ({ directorOpen: false, combat: true, enemy: 'Гуль', enemyDesc: 'несётся на тебя через зал, припадая для прыжка', enemyHp: 58, stance: 'Обычный', msgs: s.msgs.concat([{ role: 'gm', text: 'Из тёмного проёма склепа вылетает гуль — серая кожа натянута на кости, когти скребут камень. Он несётся на тебя через зал. Времени на раздумья нет: выбери стойку и действуй.' }]) }));
+  }
+  endCombat() { if (this._t) clearTimeout(this._t); this.setState(s => ({ combat: false, thinking: false, msgs: s.msgs.concat([{ role: 'gm', text: 'Ты разрываешь дистанцию и ныряешь в боковой проход. Шорох когтей стихает за спиной — гуль потерял тебя в темноте склепа.' }]) })); }
+
+  send() {
+    const t = this.state.input.trim(); if (!t) return;
+    if (this.state.combat) return this.combatTurn(t);
+    if (t === '/save' || t.startsWith('/save')) return this.doSave();
+    if (t.startsWith('/ask')) return this.ask(t.slice(4).trim());
+    if (t === '/look' || t.startsWith('/look')) return this.look();
+    if (t === '/rest' || t.startsWith('/rest')) return this.rest();
+    if (t === '/recap') return this.recap();
+    if (t === '/talk' || t.startsWith('/talk')) return this.talk();
+    if (t === '/heal' || t.startsWith('/heal')) return this.heal();
+    if (t === '/map') return this.setState({ mapOpen: true, input: '' });
+    if (t === '/shop') return this.setState({ shopOpen: true, input: '' });
+    let act = t;
+    if (t.startsWith('/go')) act = t.slice(3).trim() || '(продолжаю осторожно)';
+    else if (t.startsWith('/')) return this.ask(t.slice(1).trim());
+    this.cont(act);
+  }
+
+  cont(act) {
+    this.setState(s => ({ msgs: s.msgs.concat([{ role: 'you', text: act }]), input: '', thinking: true }));
+    if (this._t) clearTimeout(this._t);
+    const pool = [
+      'Тени в углу притона смещаются — кто-то заметил твой интерес. Старик с бельмом на глазу едва заметно кивает в сторону задней двери, за которой, по слухам, и вершится передел.',
+      'Запах сырости и дешёвого вина оседает на языке. Двойник, о котором здесь шептались, уже знает, что ты пришёл, — и одно это меняет правила игры.',
+      'Половица скрипит под твоим шагом, и в наступившей тишине каждый взгляд в зале превращается в вопрос: свой или чужой? Решать придётся быстро.'
+    ];
+    this._t = setTimeout(() => {
+      const reply = pool[Math.floor(Math.random() * pool.length)];
+      this.setState(s => ({ msgs: s.msgs.concat([{ role: 'gm', text: reply }]), thinking: false }));
+    }, 1200);
+  }
+
+  ask(q) {
+    const s = (q || '').toLowerCase();
+    let a;
+    if (/бой|дра|удар|сраж/.test(s)) a = 'Бой идёт в непрерывном времени — без ходов и очереди. Я скрыто прикидываю скорость оружия, усталость и раны и описываю исход. Точных чисел и HP ты не видишь: это часть реализма.';
+    else if (/маг|сил|закл|кол/.test(s)) a = 'Вся магия питается одним ресурсом — Силой; я веду её грубо: Полон / Расходует / На исходе / Истощён. Тёмные цены (коррупция, годы жизни) растут лишь за переступающие действия — редко и необратимо.';
+    else if (/рост|разв|навык|опыт|улучш/.test(s)) a = 'Ты растёшь через практику и кризисы, а не по таймеру. Я не показываю «+1 к навыку» — приходят особенности словами, когда ты реально набьёшь руку, и редкие специализации на поворотных моментах.';
+    else if (/деньг|цен|монет|купить|торг/.test(s)) a = '1 GP = 10 SP = 100 MP, серебро — ходовая монета. Цены это диапазоны; конкретную я называю по логике места, сезона и торга. Деньги ты видишь честно — это не скрытая шкала.';
+    else if (/след|подозр|репут/.test(s)) a = 'След и подозрение — это реакция мира, а не счётчик. Растёт незаметно от поступков и проявляется косыми взглядами стражи и закрытыми дверями, а не цифрой.';
+    else a = 'Спрашивай о любой механике — отвечу честно, вне роли. В обычной игре ты видишь только мир и художественный текст; кухня (скрытые броски, DC, шкалы) остаётся у меня. Чисел я не показываю намеренно.';
+    this.setState(st => ({ input: '', msgs: st.msgs.concat([{ role: 'you', text: '/ask ' + (q || '') }, { role: 'meta', text: a }]) }));
+  }
+  look() { this.setState(s => ({ input: '', msgs: s.msgs.concat([{ role: 'you', text: '/look' }, { role: 'gm', text: 'Ты замираешь и впитываешь обстановку: низкие своды притона, копоть на балках, влажный блеск камня. Несколько фигур у дальней стены делают вид, что не смотрят. У задней двери — тот, чьё лицо словно отражает твоё собственное.' }]) })); }
+  rest() { this.setState(s => { const w = s.wounds.map(x => ({ desc: x.desc, stage: x.stage === 'свежая' ? 'затягивается' : 'зажила' })).filter(x => x.stage !== 'зажила'); const healed = s.wounds.length && w.length < s.wounds.length; return { input: '', stam: s.stamMax, power: 'Полон', hp: Math.min(s.hpMax, s.hp + 18), wounds: w, msgs: s.msgs.concat([{ role: 'system', text: 'Короткий отдых · дыхание выровнялось, Сила восстановилась' + (s.wounds.length ? ', раны затянулись' : '') }, { role: 'gm', text: 'Ты находишь нишу в тени и переводишь дух. Усталость отступает' + (s.wounds.length ? ', а раны понемногу затягиваются' : '') + ', и Сила вновь наполняет тебя ровным течением.' }]) }; }); }
+  heal() { this.setState(s => { if (!s.wounds.length) return { input: '', msgs: s.msgs.concat([{ role: 'gm', text: 'Ран нет — перевязывать нечего. Ты лишь проверяешь снаряжение и затягиваешь ремни.' }]) }; const w = s.wounds.slice(); w[0] = { desc: w[0].desc, stage: w[0].stage === 'свежая' ? 'затягивается' : 'зажила' }; const w2 = w.filter(x => x.stage !== 'зажила'); return { input: '', hp: Math.min(s.hpMax, s.hp + 10), wounds: w2, msgs: s.msgs.concat([{ role: 'you', text: '/перевязать' }, { role: 'gm', text: 'Ты разрываешь полосу ткани и туго перетягиваешь рану. Кровь унимается, боль тупеет — рана начинает затягиваться.' }]) }; }); }
+  dlgTree() { return {
+    intro: { npc: 'Двойник', choices: [
+      { t: '«Кто ты на самом деле?»', reply: 'Он усмехается твоим же лицом: «Тот, кем ты стал бы, сломай тебя Юг чуть раньше. Зови меня отражением.»', to: 'who' },
+      { t: '«Что тебе нужно от простолюдинов?»', reply: '«Мне — ничего. Это некромант в склепах собирает их тени. Я лишь смотрю, кто придёт спасать.»', to: 'plot' },
+      { t: 'Молча положить руку на кинжал', reply: 'Его улыбка гаснет: «Поспешно. Но я понимаю — на твоём месте я бы сделал так же.» Воздух густеет.', to: 'threat' }
+    ] },
+    who: { npc: 'Двойник', choices: [
+      { t: '«Чего ты хочешь?»', reply: '«Чтобы ты дошёл до склепов. А там выбирай: спасти или присвоить силу. Мне любопытно.»', to: 'plot' },
+      { t: 'Уйти', reply: 'Ты отступаешь в тень. Он не мешает — лишь провожает тебя взглядом.', to: null }
+    ] },
+    plot: { npc: 'Двойник', choices: [
+      { t: '«Где эти склепы?»', reply: '«За старой водокачкой, где земля помнит больше живых. Иди на запах гнили — на запад.»', to: 'clue' },
+      { t: '«Почему помогаешь мне?»', reply: '«Помогаю? Я не мешаю. Это, знаешь ли, не одно и то же.»', to: 'plot2' }
+    ] },
+    plot2: { npc: 'Двойник', choices: [
+      { t: 'Уйти к склепам', reply: 'Ты разворачиваешься. След ведёт на запад, к старой водокачке.', to: null }
+    ] },
+    threat: { npc: 'Двойник', choices: [
+      { t: 'Убрать руку', reply: '«Мудро. Сегодня не наш день.» Он растворяется в полумраке притона.', to: null },
+      { t: 'Напасть', reply: 'Клинок встречает пустоту — он уже отступил, оставив лишь эхо смеха под сводами.', to: null }
+    ] },
+    clue: { npc: 'Двойник', choices: [
+      { t: 'Запомнить направление', reply: 'Запад. Гниль. Старая водокачка. Ты киваешь — и он исчезает, будто его и не было.', to: null }
+    ] }
+  }; }
+  talk() { this.setState(s => ({ input: '', dlg: 'intro', msgs: s.msgs.concat([{ role: 'gm', text: 'У задней двери стоит фигура с твоим собственным лицом — двойник. Он чуть склоняет голову: «Долго же ты собирался подойти. Спрашивай.»' }]) })); }
+  pickChoice(i) { const node = this.dlgTree()[this.state.dlg]; if (!node) return; const c = node.choices[i]; if (!c) return; this.setState(s => ({ dlg: c.to, msgs: s.msgs.concat([{ role: 'you', text: c.t }, { role: 'gm', text: c.reply }]) })); }
+  travelText(name) { return ({ 'Рынок наёмников': 'Узкими проулками ты выходишь к рынку наёмников: лязг стали, торг и запах конского пота. Здесь продаётся всё — клинки, услуги и молчание.', 'Верхний город': 'Мощёные улицы, чистые фасады и взгляды стражи, что провожают каждого чужака. Здесь магия легальна, а инквизиция не дремлет.', 'Городские ворота': 'Высокие створки и сонные стражники. За ними — тракт, уводящий на юг, в дикие земли.', 'Склепы Юга': 'Земля под ногами становится мягкой и смрадной. Покосившиеся надгробия, запах гнили и древних заклинаний. Где-то здесь некромант вьёт свои тени.', 'Старая водокачка': 'Ржавая водокачка скрипит на ветру — тот самый ориентир. Отсюда тропа уводит к склепам.', 'Нижний город': 'Ты возвращаешься в полумрак Нижнего города — притоны, шёпот и знакомые тени.' })[name] || 'Ты добираешься до места.'; }
+  travel(name) { if (name === this.state.location) { this.setState({ mapOpen: false }); return; } this.setState(s => ({ location: name, mapOpen: false, input: '', msgs: s.msgs.concat([{ role: 'system', text: 'В пути → ' + name }, { role: 'gm', text: this.travelText(name) }]) })); }
+  recap() { this.setState(s => ({ input: '', msgs: s.msgs.concat([{ role: 'meta', text: 'Где мы: арка «спасение · простолюдины · Юг». Ты в притоне Нижнего города, идёшь по слуху о переделе власти и двойнике. Открытые нити: след/подозрение растёт, двойник представлен, некромант в склепах пока не раскрыт.' }]) })); }
+  fmtCap(mp) { const gp = Math.floor(mp / 100); let r = mp - gp * 100; const sp = Math.floor(r / 10); const c = r - sp * 10; return gp + ' GP ' + sp + ' SP ' + c + ' MP'; }
+  buy(name, price) {
+    if (this.state.capMp < price) { this.setState(s => ({ msgs: s.msgs.concat([{ role: 'system', text: 'Не хватает монет: ' + name }]) })); return; }
+    this.setState(s => ({ capMp: s.capMp - price, bag: s.bag.concat([name]), msgs: s.msgs.concat([{ role: 'system', text: 'Куплено: ' + name + ' (−' + Math.round(price / 10) + ' SP)' }]) }));
+  }
+  chooseGrowth(key, desc) { this.setState(s => ({ growthOpen: false, traits: s.traits.concat([{ key, desc }]), msgs: s.msgs.concat([{ role: 'meta', text: 'Особенность обретена: ' + key + ' — ' + desc + '. Это описательная черта, а не цифра: я учту её в том, как мир и бой отзываются на тебя.' }]) })); }
+
+  combatTurn(text) {
+    const stance = this.state.stance;
+    const isCast = /маг|огн|кров|закл|каст|искр|молни|щит|плам|лёд|лед/i.test(text);
+    const dmg = { 'Безрассудный': 22, 'Агрессивный': 16, 'Обычный': 12, 'Оборонительный': 8, 'Только защита': 2 };
+    const take = { 'Безрассудный': 16, 'Агрессивный': 11, 'Обычный': 8, 'Оборонительный': 4, 'Только защита': 1 };
+    const eh = this.state.enemyHp - (dmg[stance] || 10);
+    const hp = Math.max(0, this.state.hp - (take[stance] || 8));
+    const stam = Math.max(0, this.state.stam - (isCast ? 16 : 9));
+    const power = isCast ? this.degrade(this.state.power) : this.state.power;
+    this.setState(s => ({ msgs: s.msgs.concat([{ role: 'you', text }]), input: '', thinking: true, enemyHp: eh, hp, stam, power }));
+    if (this._t) clearTimeout(this._t);
+    this._t = setTimeout(() => {
+      if (hp <= 0) {
+        this.setState(s => ({ combat: false, thinking: false, outcome: 'death', msgs: s.msgs.concat([{ role: 'gm', text: 'Когти находят горло прежде, чем ты успеваешь отстраниться. Холод растекается от раны, свет факелов мутнеет — и склеп смыкается над тобой тишиной.' }]) }));
+        return;
+      }
+      if (eh <= 0) {
+        const wound = (hp / this.state.hpMax < 0.82) ? [{ desc: 'рваная рана на боку от когтей', stage: 'свежая' }] : [];
+        this.setState(s => ({ combat: false, thinking: false, outcome: 'victory', wounds: s.wounds.concat(wound), msgs: s.msgs.concat([{ role: 'gm', text: 'Последний удар достигает цели — гуль оседает грудой костей у стены, и тишина склепа вновь смыкается. Ты тяжело дышишь: и Сила, и силы на исходе, но ты выстоял.' }]) }));
+        return;
+      }
+      const cast = isCast ? 'Ты чувствуешь, как Сила утекает сквозь пальцы — резерв тает быстрее, чем хотелось бы. ' : '';
+      const byStance = {
+        'Безрассудный': 'Ты бросаешься вперёд, открывшись полностью; кинжал входит глубоко, но когти рвут тебе бок в ответ.',
+        'Агрессивный': 'Ты давишь, не давая твари опомниться; удар достигает цели, но и гуль успевает зацепить тебя.',
+        'Обычный': 'Размен ударами: твой клинок чертит по серой коже, его когти — по твоему плащу.',
+        'Оборонительный': 'Ты держишь дистанцию и бьёшь наверняка, почти не подставляясь.',
+        'Только защита': 'Ты уходишь в глухую оборону — когти лишь скрежещут по выставленному предплечью.'
+      };
+      const edesc = eh > 36 ? 'припадает для нового броска, шипя сквозь зубы' : (eh > 16 ? 'ранен, но всё ещё на ногах — глаза горят голодом' : 'едва держится, кренится и хрипит');
+      this.setState(s => ({ thinking: false, enemyDesc: edesc, msgs: s.msgs.concat([{ role: 'gm', text: cast + (byStance[stance] || byStance['Обычный']) + ' Бой продолжается.' }]) }));
+    }, 1100);
+  }
+
+  doSave() {
+    const h = Math.random().toString(16).slice(2, 6);
+    const last = [...this.state.msgs].reverse().find(m => m.role === 'gm');
+    const note = last ? (last.text.slice(0, 38) + '…') : 'ручное сохранение';
+    this.setState(s => ({ menuOpen: false, input: '', saves: [{ when: 'День 1 · утро · весна', note, hash: h }, ...s.saves], msgs: s.msgs.concat([{ role: 'system', text: 'Канон сохранён и отправлен в репозиторий · #' + h }]) }));
+  }
+
+  itemDesc(name) {
+    return {
+      'Кинжал': 'Лёгкий метательный клинок с потемневшим лезвием — твой давний спутник в тенях.',
+      'Тёмный плащ': 'Плотная ткань без блеска, глотающая свет факелов. В нём легко стать частью стены.',
+      'Отмычки': 'Набор тонких стальных крючков в кожаном чехле. Большинству замков Нижнего города они не ровня.',
+      'Дорожный паёк (неделя)': 'Сухари, вяленое мясо и твёрдый сыр — запас на неделю пути.'
+    }[name] || 'Обычная вещь, каких много.';
+  }
+
+  itemAct(label) {
+    const it = this.state.invItem;
+    if (label === 'Осмотреть') {
+      this.setState(s => ({ invOpen: false, msgs: s.msgs.concat([{ role: 'gm', text: it + '. ' + this.itemDesc(it) }]) }));
+    } else if (label === 'Выбросить') {
+      this.setState(s => ({ invOpen: false, worn: s.worn.filter(x => x !== it), bag: s.bag.filter(x => x !== it), msgs: s.msgs.concat([{ role: 'system', text: it + ' — выброшено' }]) }));
+    } else if (label === 'Использовать' && /Зелье/.test(it)) {
+      this.setState(s => { const i = s.bag.indexOf(it); const bag = s.bag.slice(); if (i >= 0) bag.splice(i, 1); return { invOpen: false, hp: s.hpMax, wounds: [], bag, msgs: s.msgs.concat([{ role: 'gm', text: 'Ты опрокидываешь склянку — тепло растекается по телу, раны затягиваются на глазах, дыхание выравнивается.' }]) }; });
+    } else {
+      this.setState(s => ({ invOpen: false, msgs: s.msgs.concat([{ role: 'you', text: (label === 'Использовать' ? 'Пускаю в ход: ' : 'Беру в руки: ') + it }]) }));
+    }
+  }
+
+  renderVals() {
+    const m = this.state.w < 880;
+    if (this._lastLen === undefined) this._lastLen = 0;
+    if (this.state.msgs.length !== this._lastLen) { this._lastLen = this.state.msgs.length; this.scrollChron(); }
+    const accent = this.state.theme === 'ink' ? '#6FBFB2' : '#2F7D72';
+    const soft = this.state.theme === 'ink' ? '#8C8F87' : '#7C7565';
+    const warm = this.state.theme === 'ink' ? '#C98A5B' : '#9C5B3B';
+    const paper2 = this.state.theme === 'ink' ? '#191E24' : '#E5DDC9';
+    const inkc = this.state.theme === 'ink' ? '#DDD7C9' : '#2C281F';
+    const danger = '#a8503e';
+
+    const sidebarBase = 'background:var(--paper2,#E5DDC9);overflow:auto;padding:24px 22px';
+    const sidebar = m
+      ? 'position:fixed;top:0;right:0;bottom:0;width:min(360px,86vw);z-index:40;box-shadow:-8px 0 30px rgba(0,0,0,0.18);border-left:1px solid var(--rule,rgba(44,40,31,0.14));transition:transform .28s ease;transform:' + (this.state.sheetOpen ? 'translateX(0)' : 'translateX(103%)') + ';' + sidebarBase
+      : 'width:316px;flex-shrink:0;border-left:1px solid var(--rule,rgba(44,40,31,0.14));' + sidebarBase;
+
+    const tabOn = 'padding:5px 12px;border-radius:7px;background:' + accent + ';color:' + paper2 + ';cursor:pointer';
+    const tabOff = 'padding:5px 12px;border-radius:7px;border:1px solid var(--chipBr,rgba(44,40,31,0.22));color:' + soft + ';cursor:pointer';
+    const sw = (on) => 'width:42px;height:24px;border-radius:14px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;padding:2px;transition:background .2s;background:' + (on ? accent : 'rgba(120,110,90,0.3)');
+    const kn = (on) => 'width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;transform:translateX(' + (on ? '18px' : '0') + ')';
+
+    const hpP = this.state.hp / this.state.hpMax;
+    let condWord, condColor;
+    if (hpP > 0.85) { condWord = 'невредим'; condColor = inkc; }
+    else if (hpP > 0.6) { condWord = 'царапины'; condColor = inkc; }
+    else if (hpP > 0.4) { condWord = 'ранен'; condColor = warm; }
+    else if (hpP > 0.2) { condWord = 'тяжело ранен'; condColor = danger; }
+    else if (hpP > 0) { condWord = 'при смерти'; condColor = danger; }
+    else { condWord = 'повержен'; condColor = danger; }
+    const stP = this.state.stam / this.state.stamMax;
+    const stamWord = stP > 0.7 ? 'дыхание ровное' : (stP > 0.4 ? 'дыхание сбито' : (stP > 0.15 ? 'вымотан' : 'на пределе'));
+
+    const chip = 'padding:4px 11px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;background:var(--chipBg,rgba(44,40,31,0.05));white-space:nowrap';
+    const condChip = 'padding:4px 11px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;background:var(--chipBg,rgba(44,40,31,0.05));white-space:nowrap;color:' + condColor;
+    const chips = [];
+    if (this.state.combat) chips.push({ text: '⚔ Бой', style: 'padding:4px 11px;border:1px solid ' + warm + ';border-radius:20px;color:' + warm + ';white-space:nowrap' });
+    if (m) { chips.push({ text: 'День 1 · утро', style: chip }); chips.push({ text: condWord, style: condChip }); }
+    else { chips.push({ text: 'День 1 · утро · весна', style: chip }); chips.push({ text: this.state.location, style: chip }); chips.push({ text: condWord, style: condChip }); chips.push({ text: this.fmtCap(this.state.capMp), style: chip }); }
+
+    const dnode = this.state.dlg ? this.dlgTree()[this.state.dlg] : null;
+    const mapNodeDefs = [
+      { name: 'Верхний город', x: 30, y: 15 },
+      { name: 'Рынок наёмников', x: 66, y: 27 },
+      { name: 'Нижний город', x: 41, y: 47 },
+      { name: 'Городские ворота', x: 75, y: 57 },
+      { name: 'Старая водокачка', x: 29, y: 71 },
+      { name: 'Склепы Юга', x: 53, y: 87 }
+    ];
+
+    const porder = ['Полон', 'Расходует', 'На исходе', 'Истощён'];
+    const pidx = porder.indexOf(this.state.power);
+    const remaining = 4 - pidx;
+    const pcolors = ['#3F8F6F', '#3F8F6F', warm, danger];
+    const pcol = pcolors[pidx];
+    const phints = ['Сила послушна', 'тратишь заметно', 'на пределе', 'нужен отдых'];
+    const pips = [0, 1, 2, 3].map(i => 'flex:1;height:6px;border-radius:3px;background:' + (i < remaining ? pcol : 'var(--chipBg,rgba(44,40,31,0.12))'));
+
+    const stances = [
+      { label: 'Агрессивный', hint: 'давить и добивать — открыться ради урона' },
+      { label: 'Обычный', hint: 'универсальный размен' },
+      { label: 'Оборонительный', hint: 'беречь себя против сильного врага' },
+      { label: 'Только защита', hint: 'глухая оборона, отступление' },
+      { label: 'Безрассудный', hint: 'последний шанс — всё или ничего' }
+    ].map(s => ({
+      label: s.label, hint: s.hint,
+      sel: () => this.setState({ stance: s.label }),
+      style: 'font-family:\'JetBrains Mono\',monospace;font-size:11px;padding:5px 11px;border-radius:16px;cursor:pointer;white-space:nowrap;' + (this.state.stance === s.label ? 'background:' + warm + ';color:' + paper2 : 'border:1px solid var(--chipBr,rgba(44,40,31,0.2));color:' + soft)
+    }));
+
+    const mkItem = (name, zone) => ({ name, open: () => this.setState({ invOpen: true, invItem: name, invZone: zone }) });
+
+    const loreSecs = [['world', 'Мир'], ['races', 'Расы'], ['magic', 'Магия'], ['danger', 'Опасности'], ['money', 'Деньги']];
+    const navOnDesk = !m;
+    const loreNav = loreSecs.map(([id, label]) => ({
+      label,
+      sel: () => this.setState({ loreSection: id }),
+      style: (navOnDesk
+        ? 'display:block;padding:9px 12px;border-radius:8px;margin-bottom:3px;cursor:pointer;font-size:14px;'
+        : 'padding:7px 14px;border-radius:16px;cursor:pointer;font-size:13px;white-space:nowrap;flex-shrink:0;') +
+        (this.state.loreSection === id ? 'background:' + accent + ';color:' + paper2 : 'color:' + inkc + ';' + (navOnDesk ? '' : 'border:1px solid var(--chipBr,rgba(44,40,31,0.2))'))
+    }));
+
+    const oc = this.state.outcome;
+    const victory = oc === 'victory';
+
+    return {
+      rootVars: this.toVars(this.pal()),
+      showStart: this.state.screen === 'start',
+      showGame: this.state.screen === 'game',
+      settingsOpen: this.state.settingsOpen,
+      loreOpen: this.state.loreOpen,
+      directorOpen: this.state.directorOpen,
+      menuOpen: this.state.menuOpen,
+      invOpen: this.state.invOpen,
+      isMobile: m,
+      showBackdrop: m && this.state.sheetOpen,
+      themeIco: this.state.theme === 'ink' ? '☀' : '☾',
+      thinking: this.state.thinking,
+      input: this.state.input,
+      msgs: this.shape(this.state.msgs),
+      statChips: chips,
+      combat: this.state.combat,
+      notCombat: !this.state.combat,
+      enemy: this.state.enemy,
+      enemyDesc: this.state.enemyDesc,
+      condWord, condColor, stamWord,
+      combatCols: m ? '1fr 1fr' : '1fr 1fr',
+      powerPips: pips, powerLabel: this.state.power, powerColor: pcol, powerHint: phints[pidx],
+      stanceChips: stances,
+      wornItems: this.state.worn.map(n => mkItem(n, 'worn')),
+      bagItems: this.state.bag.map(n => mkItem(n, 'bag')),
+      saves: this.state.saves,
+      invName: this.state.invItem || '',
+      invDesc: this.state.invItem ? this.itemDesc(this.state.invItem) : '',
+      invActions: ['Осмотреть', 'Использовать', 'Выбросить'].map(l => ({ label: l, run: () => this.itemAct(l) })),
+      outcomeShown: !!oc,
+      outcomeBg: victory ? 'rgba(14,12,9,0.74)' : 'rgba(10,8,6,0.85)',
+      outcomeAccent: victory ? accent : danger,
+      outcomeKicker: victory ? 'Столкновение' : 'Конец пути',
+      outcomeTitle: victory ? 'Гуль повержен' : 'Хроника окончена',
+      outcomeTitleColor: '#EDE7D7',
+      outcomeText: victory ? 'Склеп снова тих. Ты выстоял — но Юг помнит каждого, кто спускается в его тьму.' : 'Смерть в этом мире реальна и значима. Но всякая история заслуживает нового начала.',
+      outcomeBtn: victory ? 'Продолжить' : 'Начать заново',
+      outcomeAction: victory ? () => this.setState({ outcome: '', growthOpen: true }) : () => this.setState({ screen: 'start', outcome: '', combat: false }),
+      proseStyle: 'font-size:' + Math.round(18 * this.state.textScale) + 'px;line-height:1.78;text-align:' + (m ? 'left' : 'justify') + ';hyphens:auto;color:var(--ink,#2C281F)',
+      youStyle: 'font-style:italic;font-size:' + Math.round(17 * this.state.textScale) + 'px;line-height:1.6;color:var(--ink,#2C281F)',
+      dropCapStyle: 'float:left;font-family:\'Playfair Display\',serif;font-weight:700;line-height:0.72;color:var(--warm,#9C5B3B);font-size:' + (m ? '46px' : '62px') + ';padding:' + (m ? '4px 9px 0 0' : '7px 12px 0 0'),
+      textScale: this.state.textScale,
+      scaleLabel: this.state.textScale.toFixed(2) + '×',
+      archCols: m ? '1fr' : '1fr 1fr 1fr',
+      chronicleStyle: 'flex:1;overflow:auto;padding:' + (m ? '26px 18px 20px' : '38px 7% 24px'),
+      sidebarStyle: sidebar,
+      inputPlaceholder: this.state.combat ? 'Опиши действие в бою…' : 'Что ты делаешь?',
+      menuStyle: (m
+        ? 'position:fixed;inset:0;z-index:47;overflow:auto;background:var(--paper,#ECE6D6);padding:24px 20px 50px'
+        : 'position:fixed;top:0;left:0;bottom:0;width:min(380px,92vw);z-index:47;overflow:auto;background:var(--paper,#ECE6D6);border-right:1px solid var(--rule,rgba(44,40,31,0.14));box-shadow:10px 0 40px rgba(20,18,14,0.3);padding:26px 26px'),
+      directorStyle: (m
+        ? 'position:fixed;inset:0;z-index:49;overflow:auto;background:var(--paper,#ECE6D6);padding:24px 20px 50px'
+        : 'position:fixed;top:0;right:0;bottom:0;width:min(420px,94vw);z-index:49;overflow:auto;background:var(--paper,#ECE6D6);border-left:1px solid var(--rule,rgba(44,40,31,0.14));box-shadow:-10px 0 40px rgba(20,18,14,0.3);padding:26px 28px'),
+      loreCardStyle: m
+        ? 'position:absolute;inset:0;width:100%;height:100%;overflow:hidden;background:var(--paper,#ECE6D6);display:flex;flex-direction:column'
+        : 'width:min(880px,96vw);height:min(640px,90vh);overflow:hidden;background:var(--paper,#ECE6D6);border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:10px;box-shadow:0 20px 60px rgba(20,18,14,0.4)',
+      loreLayout: m ? 'display:flex;flex-direction:column;height:100%' : 'display:flex;height:100%',
+      loreNavStyle: m
+        ? 'padding:20px 18px 12px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))'
+        : 'width:220px;flex-shrink:0;border-right:1px solid var(--rule,rgba(44,40,31,0.14));background:var(--paper2,#E5DDC9);padding:22px 18px',
+      loreNavInner: m ? 'display:flex;gap:7px;overflow-x:auto;padding-bottom:2px' : '',
+      loreNav,
+      loreWorld: this.state.loreSection === 'world',
+      loreRaces: this.state.loreSection === 'races',
+      loreMagic: this.state.loreSection === 'magic',
+      loreDanger: this.state.loreSection === 'danger',
+      loreMoney: this.state.loreSection === 'money',
+      settingsCardStyle: m
+        ? 'position:absolute;inset:0;width:100%;height:100%;overflow:auto;background:var(--paper,#ECE6D6);padding:24px 20px 60px'
+        : 'width:min(480px,94vw);max-height:88vh;overflow:auto;background:var(--paper,#ECE6D6);border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:10px;padding:28px 30px;box-shadow:0 20px 60px rgba(20,18,14,0.4)',
+      paperTabStyle: this.state.theme === 'paper' ? tabOn : tabOff,
+      inkTabStyle: this.state.theme === 'ink' ? tabOn : tabOff,
+      ragSwitch: sw(this.state.ragOn), ragKnob: kn(this.state.ragOn),
+      llmSwitch: sw(this.state.llmOn), llmKnob: kn(this.state.llmOn),
+      gitSwitch: sw(this.state.gitOn), gitKnob: kn(this.state.gitOn),
+      gitOn: this.state.gitOn,
+      showCmds: this.state.screen === 'game' && !this.state.combat && this.state.input.trim().startsWith('/'),
+      cmdList: [
+        { cmd: '/go', hint: 'продолжить сцену', run: () => this.setState({ input: '/go ' }) },
+        { cmd: '/ask', hint: 'спросить о механике (мета)', run: () => this.setState({ input: '/ask ' }) },
+        { cmd: '/look', hint: 'осмотреться', run: () => this.look() },
+        { cmd: '/talk', hint: 'заговорить с двойником', run: () => this.talk() },
+        { cmd: '/map', hint: 'карта окрестностей', run: () => this.setState({ mapOpen: true, input: '' }) },
+        { cmd: '/rest', hint: 'перевести дух и залечить раны', run: () => this.rest() },
+        { cmd: '/heal', hint: 'перевязать рану', run: () => this.heal() },
+        { cmd: '/shop', hint: 'лавка торговца', run: () => this.setState({ shopOpen: true, input: '' }) },
+        { cmd: '/save', hint: 'сохранить канон', run: () => this.doSave() },
+        { cmd: '/recap', hint: 'что было до этого', run: () => this.recap() }
+      ].filter(c => this.state.input.trim() === '/' || c.cmd.startsWith(this.state.input.trim().toLowerCase())),
+      traitItems: this.state.traits,
+      traitsShown: this.state.traits.length > 0,
+      growthOpen: this.state.growthOpen,
+      growthOpts: [
+        { key: 'Живучий', desc: 'дольше держишься на тяжёлых ранах', pick: () => this.chooseGrowth('Живучий', 'дольше держишься на тяжёлых ранах') },
+        { key: 'Боевая ярость', desc: 'на грани бьёшь яростнее обычного', pick: () => this.chooseGrowth('Боевая ярость', 'на грани бьёшь яростнее обычного') },
+        { key: 'Хладнокровие', desc: 'паника и страх почти не берут тебя', pick: () => this.chooseGrowth('Хладнокровие', 'паника и страх почти не берут тебя') }
+      ],
+      shopOpen: this.state.shopOpen,
+      shopItems: [
+        { name: 'Короткий меч', q: 'грубый', price: 1200 },
+        { name: 'Кожаный доспех', q: 'добротный', price: 900 },
+        { name: 'Зелье исцеления', q: 'малое', price: 800 },
+        { name: 'Запасные отмычки', q: 'тонкие', price: 250 },
+        { name: 'Дорожный паёк', q: 'на неделю', price: 50 },
+        { name: 'Связка факелов', q: '5 шт', price: 30 }
+      ].map(it => ({ name: it.name, q: it.q, priceLabel: Math.round(it.price / 10) + ' SP', buy: () => this.buy(it.name, it.price), btnStyle: (this.state.capMp >= it.price ? ('border:1px solid ' + accent + ';color:' + accent + ';opacity:1') : ('border:1px solid var(--chipBr,rgba(44,40,31,0.2));color:' + soft + ';opacity:0.6')) + ';background:transparent;border-radius:8px;padding:6px 14px;font-family:\'JetBrains Mono\',monospace;font-size:12px;cursor:pointer' })),
+      capitalStr: this.fmtCap(this.state.capMp),
+      dlgActive: !!dnode && !this.state.combat,
+      dlgNpc: dnode ? dnode.npc : '',
+      dlgChoices: dnode ? dnode.choices.map((c, i) => ({ t: c.t, pick: () => this.pickChoice(i) })) : [],
+      woundsShown: this.state.wounds.length > 0,
+      woundItems: this.state.wounds.map(w => ({ desc: w.desc, stage: w.stage, color: w.stage === 'свежая' ? danger : (w.stage === 'затягивается' ? warm : soft) })),
+      mapOpen: this.state.mapOpen,
+      location: this.state.location,
+      mapNodes: mapNodeDefs.map(n => ({ name: n.name, current: n.name === this.state.location, go: () => this.travel(n.name), style: 'position:absolute;left:' + n.x + '%;top:' + n.y + '%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;text-align:center', dot: 'width:' + (n.name === this.state.location ? 14 : 10) + 'px;height:' + (n.name === this.state.location ? 14 : 10) + 'px;border-radius:50%;background:' + (n.name === this.state.location ? accent : 'var(--paper,#ECE6D6)') + ';border:2px solid ' + (n.name === this.state.location ? accent : warm), label: 'font-family:\'JetBrains Mono\',monospace;font-size:11px;white-space:nowrap;color:' + (n.name === this.state.location ? accent : inkc) + ';' + (n.name === this.state.location ? 'font-weight:500' : '') })),
+      mapCardStyle: m
+        ? 'position:absolute;inset:0;width:100%;height:100%;overflow:auto;background:var(--paper,#ECE6D6);padding:22px 18px 40px;display:flex;flex-direction:column'
+        : 'width:min(620px,95vw);background:var(--paper,#ECE6D6);border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:10px;padding:24px 26px;box-shadow:0 20px 60px rgba(20,18,14,0.4)',
+      openMap: () => this.setState({ mapOpen: true, menuOpen: false }),
+      closeMap: () => this.setState({ mapOpen: false }),
+      talk: () => this.talk(),
+      chronRef: (el) => { this._chron = el; },
+      shopCardStyle: m
+        ? 'position:absolute;inset:0;width:100%;height:100%;overflow:auto;background:var(--paper,#ECE6D6);padding:24px 20px 50px'
+        : 'width:min(480px,94vw);max-height:86vh;overflow:auto;background:var(--paper,#ECE6D6);border:1px solid var(--rule,rgba(44,40,31,0.14));border-radius:10px;padding:26px 28px;box-shadow:0 20px 60px rgba(20,18,14,0.4)',
+      openShop: () => this.setState({ shopOpen: true, menuOpen: false }),
+      closeShop: () => this.setState({ shopOpen: false }),
+      archetypes: [
+        { name: 'Ангвар', meta: 'светлый эльф · преступник', blurb: 'Тень с криминальным прошлым. Кинжал, отмычки, тёмный плащ.', go: () => this.begin('Спускаюсь в притон Нижнего города — ищу того, кто шепчет о переделе власти.', this.opening()) },
+        { name: 'Дар509', meta: 'человек · маг-стихийник', blurb: 'Выпускник академии. Огонь послушен, но мир к магии настороже.', go: () => this.begin('Прибываю в город с рекомендательным письмом от академии.', 'Городские ворота встречают тебя дождём и подозрительными взглядами стражи. Письмо академии открывает двери — но магия здесь и щит, и мишень. Где-то в Верхнем городе уже знают, что прибыл новый чародей.') },
+        { name: 'Торгрим', meta: 'гном · воин-наёмник', blurb: 'Топор, кольчуга и долгая память на долги. Ищет работу.', go: () => this.begin('Захожу в таверну у рынка наёмников — нужна работа.', 'Дым очага и звон кружек. У дальнего стола человек в дорогом плаще ловит твой взгляд и кивает на пустой стул напротив — у него есть дело, за которое платят золотом и молчанием.') }
+      ],
+      toggleTheme: () => this.setState(s => ({ theme: s.theme === 'ink' ? 'paper' : 'ink' })),
+      setPaper: () => this.setState({ theme: 'paper' }),
+      setInk: () => this.setState({ theme: 'ink' }),
+      openSettings: () => this.setState({ settingsOpen: true }),
+      closeSettings: () => this.setState({ settingsOpen: false }),
+      openLore: () => this.setState({ loreOpen: true }),
+      closeLore: () => this.setState({ loreOpen: false }),
+      openDirector: () => this.setState({ directorOpen: true }),
+      closeDirector: () => this.setState({ directorOpen: false }),
+      openMenu: () => this.setState({ menuOpen: true }),
+      closeMenu: () => this.setState({ menuOpen: false }),
+      openSheet: () => this.setState({ sheetOpen: true }),
+      closeSheet: () => this.setState({ sheetOpen: false }),
+      closeInv: () => this.setState({ invOpen: false }),
+      stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+      backToStart: () => this.setState({ screen: 'start', combat: false, menuOpen: false, outcome: '' }),
+      setScale: (e) => this.setState({ textScale: parseFloat(e.target.value) }),
+      toggleRag: () => this.setState(s => ({ ragOn: !s.ragOn })),
+      toggleLlm: () => this.setState(s => ({ llmOn: !s.llmOn })),
+      toggleGit: () => this.setState(s => ({ gitOn: !s.gitOn })),
+      onInput: (e) => this.setState({ input: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); } },
+      send: () => this.send(),
+      startCustom: () => this.startCustom(),
+      startCombat: () => this.startCombat(),
+      endCombat: () => this.endCombat(),
+      doSave: () => this.doSave(),
+      insertGo: () => this.setState({ input: '/go ' }),
+      insertAsk: () => this.setState({ input: '/ask ' })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -60,8 +60,8 @@
 	<label class="field row">
 		<span>Тема</span>
 		<select bind:value={settings.theme} onchange={commit}>
-			<option value="dark">Тёмная (тушь)</option>
-			<option value="light">Светлая (скрипторий)</option>
+			<option value="light">Пергамент (светлая)</option>
+			<option value="dark">Тушь (тёмная)</option>
 		</select>
 	</label>
 

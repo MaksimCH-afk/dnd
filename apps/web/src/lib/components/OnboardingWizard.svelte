@@ -72,7 +72,7 @@
 	input { width: 100%; background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .5rem .6rem; font: inherit; margin-bottom: .6rem; }
 	.row { display: flex; gap: .6rem; align-items: center; }
 	.row button, .finish button { background: var(--surface-raised); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: .5rem 1rem; font-size: .9em; }
-	.primary { background: var(--accent) !important; color: var(--ink-900) !important; border: none !important; }
+	.primary { background: var(--accent) !important; color: var(--on-accent) !important; border: none !important; }
 	.finish { display: flex; gap: .6rem; }
 	.err { color: var(--danger); font-size: .85em; }
 	small { color: var(--text-dim); font-size: .76em; }

@@ -9,10 +9,17 @@
 	let textarea: HTMLTextAreaElement | undefined = $state();
 
 	const commands = [
-		{ label: '/go', title: 'Продолжить' },
-		{ label: '/save', title: 'Сохранить' },
-		{ label: '/ask', title: 'Спросить мастера' }
+		{ cmd: '/go', hint: 'подтянуть состояние с сервера' },
+		{ cmd: '/save', hint: 'сохранить канон (снапшот)' },
+		{ cmd: '/ask', hint: 'спросить о механике (мета)' }
 	];
+
+	// Подсказка-меню команд при вводе «/…».
+	const cmdMenu = $derived.by(() => {
+		const t = value.trim().toLowerCase();
+		if (!t.startsWith('/')) return [];
+		return commands.filter((c) => t === '/' || c.cmd.startsWith(t.split(/\s/)[0]));
+	});
 
 	function submit() {
 		const text = value.trim();
@@ -30,7 +37,7 @@
 	}
 
 	function insertCommand(cmd: string) {
-		value = value.trim().length ? `${cmd} ${value.trim()}` : `${cmd} `;
+		value = value.trim().length && !value.trim().startsWith('/') ? `${cmd} ${value.trim()}` : `${cmd} `;
 		textarea?.focus();
 		autosize();
 	}
@@ -38,89 +45,149 @@
 	function autosize() {
 		if (!textarea) return;
 		textarea.style.height = 'auto';
-		textarea.style.height = `${Math.min(textarea.scrollHeight, 240)}px`;
+		textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
 	}
 </script>
 
 <div class="composer">
-	<div class="chips">
-		{#each commands as cmd (cmd.label)}
-			<button type="button" class="chip mono" onclick={() => insertCommand(cmd.label)} title={cmd.title}>
-				{cmd.label}
+	<div class="inner">
+		{#if cmdMenu.length}
+			<div class="cmd-menu">
+				{#each cmdMenu as c (c.cmd)}
+					<button type="button" class="cmd-row" onclick={() => insertCommand(c.cmd)}>
+						<span class="mono key">{c.cmd}</span>
+						<span class="hint">{c.hint}</span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+
+		<div class="chips mono">
+			{#each commands as c (c.cmd)}
+				<button type="button" class="chip" onclick={() => insertCommand(c.cmd)} title={c.hint}>{c.cmd}</button>
+			{/each}
+		</div>
+
+		<div class="field">
+			<textarea
+				bind:this={textarea}
+				bind:value
+				rows="1"
+				placeholder="Что ты делаешь?"
+				disabled={busy}
+				oninput={autosize}
+				onkeydown={onKeydown}
+				aria-label="Ввод действия"
+			></textarea>
+			<button type="button" class="send" onclick={submit} disabled={busy || !value.trim()} aria-label="Отправить">
+				{busy ? '…' : '➤'}
 			</button>
-		{/each}
-	</div>
-	<div class="row">
-		<textarea
-			bind:this={textarea}
-			bind:value
-			rows="1"
-			placeholder="Что ты делаешь?"
-			disabled={busy}
-			oninput={autosize}
-			onkeydown={onKeydown}
-			aria-label="Ввод действия"
-		></textarea>
-		<button type="button" class="send" onclick={submit} disabled={busy || !value.trim()} aria-label="Отправить">
-			{busy ? '…' : '➤'}
-		</button>
+		</div>
 	</div>
 </div>
 
 <style>
 	.composer {
-		border-top: 1px solid var(--border);
-		background: color-mix(in srgb, var(--surface) 70%, transparent);
-		backdrop-filter: blur(8px);
-		padding: 0.6rem var(--gutter) max(0.6rem, env(safe-area-inset-bottom));
+		flex-shrink: 0;
+		border-top: 1px solid var(--rule);
+		background: var(--surface);
+		padding: 12px var(--gutter) max(12px, env(safe-area-inset-bottom));
 	}
+	.inner {
+		max-width: var(--prose-measure);
+		margin: 0 auto;
+	}
+
+	.cmd-menu {
+		border: 1px solid var(--chip-br);
+		border-radius: 10px;
+		background: var(--bg);
+		overflow: hidden;
+		margin-bottom: 10px;
+	}
+	.cmd-row {
+		display: flex;
+		align-items: baseline;
+		gap: 12px;
+		width: 100%;
+		text-align: left;
+		padding: 9px 14px;
+		background: none;
+		border: none;
+		border-bottom: 1px solid var(--rule);
+	}
+	.cmd-row:last-child {
+		border-bottom: none;
+	}
+	.cmd-row:hover {
+		background: var(--chip-bg);
+	}
+	.cmd-row .key {
+		font-size: 0.8rem;
+		color: var(--accent);
+		width: 62px;
+		flex-shrink: 0;
+	}
+	.cmd-row .hint {
+		font-size: 0.85rem;
+		color: var(--text-dim);
+	}
+
 	.chips {
 		display: flex;
-		gap: 0.4rem;
-		margin-bottom: 0.5rem;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-bottom: 10px;
+		font-size: 0.7rem;
 	}
 	.chip {
-		background: var(--surface-raised);
-		border: 1px solid var(--border);
-		color: var(--text-dim);
-		border-radius: 999px;
-		padding: 0.2rem 0.7rem;
-		font-size: 0.85em;
-		transition: color 0.15s, border-color 0.15s;
+		padding: 3px 12px;
+		border: 1px solid var(--chip-br);
+		border-radius: 20px;
+		color: var(--accent);
+		background: none;
+		transition: border-color 0.15s;
 	}
 	.chip:hover {
-		color: var(--accent);
 		border-color: var(--accent);
 	}
-	.row {
+
+	.field {
 		display: flex;
-		gap: 0.5rem;
 		align-items: flex-end;
+		gap: 10px;
+		border: 1.5px solid var(--accent);
+		border-radius: 12px;
+		padding: 9px 12px;
+		background: var(--bg);
 	}
 	textarea {
 		flex: 1;
 		resize: none;
-		background: var(--surface-raised);
+		border: none;
+		background: transparent;
 		color: var(--text);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		padding: 0.6rem 0.8rem;
 		font-family: var(--font-prose);
+		font-style: italic;
 		font-size: 1em;
 		line-height: 1.5;
-		max-height: 240px;
+		outline: none;
+		max-height: 120px;
 	}
 	textarea:disabled {
 		opacity: 0.6;
 	}
 	.send {
+		width: 36px;
+		height: 36px;
+		border-radius: 9px;
 		background: var(--accent);
-		color: var(--ink-900);
+		color: var(--on-accent);
 		border: none;
-		border-radius: var(--radius);
-		width: 3rem;
-		height: 2.7rem;
-		font-size: 1.1rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 15px;
 		flex-shrink: 0;
 		transition: opacity 0.15s;
 	}

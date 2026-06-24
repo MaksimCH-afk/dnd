@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:wght@500;600;700;900&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:rgba(120,110,90,0.35);border-radius:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+
+<div style="position:absolute;left:60px;top:48px;width:1200px">
+  <div data-drags-parent="1" style="display:flex;align-items:baseline;gap:12px;margin-bottom:14px;font-family:'Manrope',sans-serif;cursor:grab">
+    <span style="font-size:13px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#3a352b">Направление A</span>
+    <span style="font-size:13px;color:#8a8270">Усиленный манускрипт · Lora + Playfair</span>
+  </div>
+  <div style="height:760px;border-radius:5px;overflow:hidden;box-shadow:0 4px 24px rgba(40,36,28,0.16)">
+    <div style="{{ d1theme }}">
+      <div style="width:100%;height:760px;display:flex;flex-direction:column;background:var(--bg,#ECE6D6);color:var(--ink,#2C281F);font-family:'Lora',Georgia,serif">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));background:var(--paper2,#E5DDC9);flex-shrink:0">
+          <div style="font-size:17px;color:var(--soft,#7C7565);cursor:pointer">☰</div>
+          <div style="display:flex;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink,#2C281F)">
+            <span style="padding:4px 11px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;background:var(--chipBg,rgba(44,40,31,0.05))">День 1 · утро · весна</span>
+            <span style="padding:4px 11px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;background:var(--chipBg,rgba(44,40,31,0.05))">HP 63/63</span>
+            <span style="padding:4px 11px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;background:var(--chipBg,rgba(44,40,31,0.05))">Вынос. 90/90</span>
+            <span style="padding:4px 11px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;background:var(--chipBg,rgba(44,40,31,0.05))">6 GP 6 SP 1 MP</span>
+          </div>
+          <div style="display:flex;gap:13px;font-size:14px;color:var(--soft,#7C7565);align-items:center">
+            <span style="cursor:pointer">✦</span><span style="cursor:pointer">❏</span>
+            <span onClick="{{ flip1 }}" style="cursor:pointer;font-size:15px;color:var(--accent,#2F7D72)">{{ t1ico }}</span>
+            <span style="cursor:pointer">⚙</span>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;min-height:0">
+          <div style="flex:1;overflow:auto;padding:38px 7% 24px">
+            <div style="max-width:660px;margin:0 auto">
+              <div style="text-align:center;font-family:'Playfair Display',serif;font-size:13px;letter-spacing:0.42em;text-transform:uppercase;color:var(--soft,#7C7565);padding-bottom:8px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));margin-bottom:34px">Хроника</div>
+
+              <div style="border-left:2px solid var(--accent,#2F7D72);padding:1px 0 1px 16px;margin:0 0 32px">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--soft,#7C7565);margin-bottom:5px">Ты</div>
+                <div style="font-style:italic;font-size:17px;line-height:1.6;color:var(--ink,#2C281F)">Спускаюсь в притон Нижнего города — ищу того, кто шепчет о переделе власти.</div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">
+                <span style="width:24px;height:24px;border-radius:5px;background:var(--accent,#2F7D72);color:var(--paper2,#E5DDC9);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">◈</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565)">Режиссёр · мягкий хук</span>
+              </div>
+              <p style="font-size:18px;line-height:1.78;text-align:justify;hyphens:auto;color:var(--ink,#2C281F);margin:0 0 30px">
+                <span style="float:left;font-family:'Playfair Display',serif;font-weight:700;font-size:62px;line-height:0.74;padding:7px 12px 0 0;color:var(--warm,#9C5B3B)">В</span>
+                полумраке притона Нижнего города Ангвар слышит, как шёпот о грядущем переделе власти скользит между стен. Криминальные кланы уже сплели сети влияния, а за ними скрывается двойник, чьи намерения неопределимы, как отблеск факела на мокром камне. Переступишь порог — и путь поведёт туда, где власть проверяется не силой, а способностью увидеть себя в чужом лице.
+              </p>
+
+              <div style="display:flex;align-items:center;gap:8px;color:var(--accent,#2F7D72);font-size:14px;margin-bottom:30px;cursor:pointer">
+                <span style="opacity:0.6">›</span><span style="font-style:italic">думаю…</span>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:9px;opacity:0.65">
+                <span style="width:24px;height:24px;border-radius:5px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--soft,#7C7565);flex-shrink:0">✎</span>
+                <span style="font-style:italic;font-size:15px;color:var(--soft,#7C7565)">Мастер пишет…</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:316px;flex-shrink:0;border-left:1px solid var(--rule,rgba(44,40,31,0.14));background:var(--paper2,#E5DDC9);overflow:auto;padding:24px 22px">
+            <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:600;color:var(--ink,#2C281F);line-height:1.1">Ангвар</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--soft,#7C7565);margin-top:4px">светлый эльф, 250 · преступник</div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;margin:20px 0 4px">
+              <div><div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565)">След</div><div style="font-size:15px;margin-top:2px">чисто</div></div>
+              <div><div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft,#7C7565)">Режим</div><div style="font-size:15px;margin-top:2px">Тихий шаг</div></div>
+            </div>
+
+            <div style="margin-top:22px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Бой</div><div style="font-size:15px;margin-top:8px">кинжал</div></div>
+
+            <div style="margin-top:20px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Интрига</div>
+              <div style="display:flex;justify-content:space-between;font-size:14px;margin-top:8px;color:var(--ink,#2C281F)"><span style="color:var(--soft,#7C7565)">Прикрытия</span><span>—</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:14px;margin-top:4px;color:var(--ink,#2C281F)"><span style="color:var(--soft,#7C7565)">Схроны</span><span>0</span></div>
+            </div>
+
+            <div style="margin-top:20px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Инвентарь</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--soft,#7C7565);margin-top:10px">Надето</div>
+              <div style="font-size:15px;margin-top:3px">Кинжал · Тёмный плащ</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--soft,#7C7565);margin-top:10px">В сумке</div>
+              <div style="font-size:15px;margin-top:3px">Отмычки · Дорожный паёк (неделя)</div>
+            </div>
+
+            <div style="margin-top:20px"><div style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--warm,#9C5B3B);padding-bottom:6px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14))">Сюжет</div><div style="font-size:14px;margin-top:8px;line-height:1.5">Арка: спасение · простолюдины · Юг</div></div>
+          </div>
+        </div>
+
+        <div style="flex-shrink:0;border-top:1px solid var(--rule,rgba(44,40,31,0.14));background:var(--paper2,#E5DDC9);padding:12px 7%">
+          <div style="max-width:660px;margin:0 auto">
+            <div style="display:flex;gap:8px;margin-bottom:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent,#2F7D72)">
+              <span style="padding:3px 12px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;cursor:pointer">/go</span>
+              <span style="padding:3px 12px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;cursor:pointer">/save</span>
+              <span style="padding:3px 12px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:20px;cursor:pointer">/ask</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;border:1.5px solid var(--accent,#2F7D72);border-radius:12px;padding:11px 14px;background:var(--paper,#ECE6D6)">
+              <span style="flex:1;font-style:italic;font-size:16px;color:var(--soft,#7C7565)">Что ты делаешь?</span>
+              <span style="width:34px;height:34px;border-radius:9px;background:var(--accent,#2F7D72);color:var(--paper2,#E5DDC9);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer">➤</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="position:absolute;left:1320px;top:48px;width:1200px">
+  <div data-drags-parent="1" style="display:flex;align-items:baseline;gap:12px;margin-bottom:14px;font-family:'Manrope',sans-serif;cursor:grab">
+    <span style="font-size:13px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#3a352b">Направление B</span>
+    <span style="font-size:13px;color:#8a8270">Современный игровой UI · Spectral + Manrope</span>
+  </div>
+  <div style="height:760px;border-radius:5px;overflow:hidden;box-shadow:0 4px 24px rgba(40,36,28,0.16)">
+    <div style="{{ d2theme }}">
+      <div style="width:100%;height:760px;display:flex;flex-direction:column;background:var(--bg,#ECE6D6);color:var(--ink,#2C281F);font-family:'Manrope',sans-serif">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 18px;border-bottom:1px solid var(--rule,rgba(44,40,31,0.14));background:var(--paper2,#E5DDC9);flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:14px"><span style="font-size:17px;color:var(--soft,#7C7565);cursor:pointer">☰</span></div>
+          <div style="display:flex;gap:7px;font-size:12px;font-weight:600">
+            <span style="padding:5px 12px;border-radius:8px;background:var(--chipBg,rgba(44,40,31,0.05))">День 1 · утро · весна</span>
+            <span style="padding:5px 12px;border-radius:8px;background:var(--chipBg,rgba(44,40,31,0.05))">HP 63/63</span>
+            <span style="padding:5px 12px;border-radius:8px;background:var(--chipBg,rgba(44,40,31,0.05))">Вынос. 90/90</span>
+            <span style="padding:5px 12px;border-radius:8px;background:var(--chipBg,rgba(44,40,31,0.05));font-family:'JetBrains Mono',monospace">6 GP 6 SP 1 MP</span>
+          </div>
+          <div style="display:flex;gap:14px;font-size:14px;color:var(--soft,#7C7565);align-items:center">
+            <span style="cursor:pointer">✦</span><span style="cursor:pointer">❏</span>
+            <span onClick="{{ flip2 }}" style="cursor:pointer;font-size:15px;color:var(--accent,#2E6F66)">{{ t2ico }}</span>
+            <span style="cursor:pointer">⚙</span>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;min-height:0">
+          <div style="flex:1;overflow:auto;padding:30px 36px">
+            <div style="max-width:640px;margin:0 auto">
+
+              <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
+                <div style="max-width:80%;background:var(--accent,#2E6F66);color:#fff;padding:11px 16px;border-radius:14px 14px 4px 14px;font-family:'Spectral',serif;font-size:16px;line-height:1.5">Спускаюсь в притон Нижнего города — ищу того, кто шепчет о переделе власти.</div>
+              </div>
+
+              <div style="display:flex;gap:11px;margin-bottom:24px">
+                <span style="width:30px;height:30px;border-radius:9px;background:var(--accent,#2E6F66);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px">◈</span>
+                <div style="flex:1">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:13px;font-weight:700;color:var(--ink,#2C281F)">Режиссёр</span><span style="font-size:11px;color:var(--soft,#7C7565);background:var(--chipBg,rgba(44,40,31,0.05));padding:2px 8px;border-radius:6px">мягкий хук</span></div>
+                  <div style="font-family:'Spectral',serif;font-size:17px;line-height:1.72;color:var(--ink,#2C281F)">В полумраке притона Нижнего города Ангвар слышит, как шёпот о грядущем переделе власти скользит между стен. Криминальные кланы уже сплели сети влияния, а за ними скрывается двойник, чьи намерения неопределимы, как отблеск факела на мокром камне. Переступишь порог — и путь поведёт туда, где власть проверяется не силой, а способностью увидеть себя в чужом лице.</div>
+                  <div style="display:flex;gap:8px;margin-top:14px">
+                    <span style="font-size:13px;padding:6px 13px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:9px;cursor:pointer;color:var(--ink,#2C281F)">Войти в притон</span>
+                    <span style="font-size:13px;padding:6px 13px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:9px;cursor:pointer;color:var(--ink,#2C281F)">Слушать дальше</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;margin-left:41px;color:var(--soft,#7C7565);font-size:14px">
+                <span style="display:flex;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:var(--accent,#2E6F66)"></span><span style="width:5px;height:5px;border-radius:50%;background:var(--accent,#2E6F66);opacity:0.6"></span><span style="width:5px;height:5px;border-radius:50%;background:var(--accent,#2E6F66);opacity:0.3"></span></span>
+                <span>Мастер пишет…</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:328px;flex-shrink:0;border-left:1px solid var(--rule,rgba(44,40,31,0.14));background:var(--paper2,#E5DDC9);overflow:auto;padding:22px 20px">
+            <div style="display:flex;align-items:center;gap:11px">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--accent,#2E6F66);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Spectral',serif;font-size:20px;flex-shrink:0">А</div>
+              <div><div style="font-size:18px;font-weight:800;color:var(--ink,#2C281F)">Ангвар</div><div style="font-size:12px;color:var(--soft,#7C7565)">светлый эльф · 250 · преступник</div></div>
+            </div>
+
+            <div style="margin-top:18px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--soft,#7C7565);margin-bottom:5px"><span>HP</span><span style="font-family:'JetBrains Mono',monospace;color:var(--ink,#2C281F)">63/63</span></div>
+              <div style="height:6px;border-radius:4px;background:var(--chipBg,rgba(44,40,31,0.08));overflow:hidden"><div style="width:100%;height:100%;background:var(--accent,#2E6F66)"></div></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:0.04em;color:var(--soft,#7C7565);margin:12px 0 5px"><span>ВЫНОСЛИВОСТЬ</span><span style="font-family:'JetBrains Mono',monospace;color:var(--ink,#2C281F)">90/90</span></div>
+              <div style="height:6px;border-radius:4px;background:var(--chipBg,rgba(44,40,31,0.08));overflow:hidden"><div style="width:100%;height:100%;background:var(--warm,#B07A3C)"></div></div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <div style="flex:1;background:var(--panel,#EFEADD);border:1px solid var(--rule,rgba(44,40,31,0.1));border-radius:10px;padding:10px 12px"><div style="font-size:10px;color:var(--soft,#7C7565);letter-spacing:0.06em">СЛЕД</div><div style="font-size:14px;font-weight:700;margin-top:2px">чисто</div></div>
+              <div style="flex:1;background:var(--panel,#EFEADD);border:1px solid var(--rule,rgba(44,40,31,0.1));border-radius:10px;padding:10px 12px"><div style="font-size:10px;color:var(--soft,#7C7565);letter-spacing:0.06em">КАПИТАЛ</div><div style="font-size:13px;font-weight:700;margin-top:2px;font-family:'JetBrains Mono',monospace">6 GP 6 SP</div></div>
+            </div>
+
+            <div style="margin-top:18px"><div style="font-size:11px;font-weight:800;letter-spacing:0.1em;color:var(--soft,#7C7565)">БОЙ · ИНТРИГА</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">
+                <span style="font-size:13px;padding:5px 11px;border-radius:8px;background:var(--chipBg,rgba(44,40,31,0.05));font-family:'Spectral',serif">кинжал</span>
+                <span style="font-size:13px;padding:5px 11px;border-radius:8px;background:var(--chipBg,rgba(44,40,31,0.05));font-family:'Spectral',serif">Прикрытия —</span>
+                <span style="font-size:13px;padding:5px 11px;border-radius:8px;background:var(--chipBg,rgba(44,40,31,0.05));font-family:'Spectral',serif">Схроны 0</span>
+              </div>
+            </div>
+
+            <div style="margin-top:18px"><div style="font-size:11px;font-weight:800;letter-spacing:0.1em;color:var(--soft,#7C7565)">ИНВЕНТАРЬ</div>
+              <div style="margin-top:9px;display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:9px;font-family:'Spectral',serif;font-size:15px"><span style="width:6px;height:6px;border-radius:2px;background:var(--accent,#2E6F66)"></span>Кинжал</div>
+                <div style="display:flex;align-items:center;gap:9px;font-family:'Spectral',serif;font-size:15px"><span style="width:6px;height:6px;border-radius:2px;background:var(--accent,#2E6F66)"></span>Тёмный плащ</div>
+                <div style="display:flex;align-items:center;gap:9px;font-family:'Spectral',serif;font-size:15px;color:var(--soft,#7C7565)"><span style="width:6px;height:6px;border-radius:2px;background:var(--chipBr,rgba(44,40,31,0.3))"></span>Отмычки · паёк</div>
+              </div>
+            </div>
+
+            <div style="margin-top:18px;background:var(--panel,#EFEADD);border:1px solid var(--rule,rgba(44,40,31,0.1));border-radius:10px;padding:12px"><div style="font-size:11px;font-weight:800;letter-spacing:0.1em;color:var(--warm,#B07A3C)">СЮЖЕТНАЯ АРКА</div><div style="font-family:'Spectral',serif;font-size:14px;margin-top:5px;line-height:1.45">спасение · простолюдины · Юг</div></div>
+          </div>
+        </div>
+
+        <div style="flex-shrink:0;border-top:1px solid var(--rule,rgba(44,40,31,0.14));background:var(--paper2,#E5DDC9);padding:14px 36px">
+          <div style="max-width:640px;margin:0 auto;display:flex;gap:10px;align-items:flex-end">
+            <div style="display:flex;flex-direction:column;gap:8px;flex:1">
+              <div style="display:flex;gap:7px;font-size:11px;font-weight:600;color:var(--accent,#2E6F66)">
+                <span style="padding:3px 11px;border-radius:7px;background:var(--chipBg,rgba(44,40,31,0.05));cursor:pointer">/go</span>
+                <span style="padding:3px 11px;border-radius:7px;background:var(--chipBg,rgba(44,40,31,0.05));cursor:pointer">/save</span>
+                <span style="padding:3px 11px;border-radius:7px;background:var(--chipBg,rgba(44,40,31,0.05));cursor:pointer">/ask</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--chipBr,rgba(44,40,31,0.2));border-radius:12px;padding:12px 15px;background:var(--paper,#ECE6D6)">
+                <span style="flex:1;font-family:'Spectral',serif;font-size:16px;color:var(--soft,#7C7565)">Что ты делаешь?</span>
+              </div>
+            </div>
+            <span style="width:46px;height:46px;border-radius:12px;background:var(--accent,#2E6F66);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;flex-shrink:0">➤</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="position:absolute;left:2580px;top:48px;width:1200px">
+  <div data-drags-parent="1" style="display:flex;align-items:baseline;gap:12px;margin-bottom:14px;font-family:'Manrope',sans-serif;cursor:grab">
+    <span style="font-size:13px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#3a352b">Направление C</span>
+    <span style="font-size:13px;color:#8a8270">Тёмное фэнтези / гримуар · Playfair + Spectral</span>
+  </div>
+  <div style="height:760px;border-radius:5px;overflow:hidden;box-shadow:0 4px 28px rgba(20,18,14,0.35)">
+    <div style="{{ d3theme }}">
+      <div style="width:100%;height:760px;display:flex;flex-direction:column;background:var(--bg,#13171B);color:var(--ink,#E6DFCB);font-family:'Spectral',serif">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;height:54px;padding:0 18px;border-bottom:1px solid var(--rule,rgba(221,215,201,0.12));background:var(--paper2,#191E24);flex-shrink:0">
+          <div style="font-size:17px;color:var(--soft,#8C8F87);cursor:pointer">☰</div>
+          <div style="display:flex;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink,#E6DFCB)">
+            <span style="padding:4px 11px;border:1px solid var(--chipBr,rgba(221,215,201,0.16));border-radius:4px;background:var(--chipBg,rgba(221,215,201,0.04))">День 1 · утро · весна</span>
+            <span style="padding:4px 11px;border:1px solid var(--chipBr,rgba(221,215,201,0.16));border-radius:4px;background:var(--chipBg,rgba(221,215,201,0.04))">HP 63/63</span>
+            <span style="padding:4px 11px;border:1px solid var(--chipBr,rgba(221,215,201,0.16));border-radius:4px;background:var(--chipBg,rgba(221,215,201,0.04))">Вынос. 90/90</span>
+            <span style="padding:4px 11px;border:1px solid var(--chipBr,rgba(221,215,201,0.16));border-radius:4px;background:var(--chipBg,rgba(221,215,201,0.04));color:var(--warm,#C9A24B)">6 GP 6 SP 1 MP</span>
+          </div>
+          <div style="display:flex;gap:13px;font-size:14px;color:var(--soft,#8C8F87);align-items:center">
+            <span style="cursor:pointer">✦</span><span style="cursor:pointer">❏</span>
+            <span onClick="{{ flip3 }}" style="cursor:pointer;font-size:15px;color:var(--warm,#C9A24B)">{{ t3ico }}</span>
+            <span style="cursor:pointer">⚙</span>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;min-height:0">
+          <div style="flex:1;overflow:auto;padding:40px 7% 24px">
+            <div style="max-width:660px;margin:0 auto">
+              <div style="text-align:center;margin-bottom:36px">
+                <div style="display:inline-flex;align-items:center;gap:14px;color:var(--warm,#C9A24B)"><span style="width:44px;height:1px;background:var(--warm,#C9A24B);opacity:0.5"></span><span style="font-family:'Playfair Display',serif;font-size:13px;letter-spacing:0.4em;text-transform:uppercase">Хроника</span><span style="width:44px;height:1px;background:var(--warm,#C9A24B);opacity:0.5"></span></div>
+              </div>
+
+              <div style="margin:0 0 34px;padding-left:18px;border-left:2px solid var(--rule,rgba(221,215,201,0.2))">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--soft,#8C8F87);margin-bottom:6px">Ты</div>
+                <div style="font-style:italic;font-size:17px;line-height:1.6;color:var(--ink,#E6DFCB);opacity:0.85">Спускаюсь в притон Нижнего города — ищу того, кто шепчет о переделе власти.</div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+                <span style="width:26px;height:26px;border-radius:50%;border:1px solid var(--warm,#C9A24B);color:var(--warm,#C9A24B);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">◈</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--warm,#C9A24B)">Режиссёр · мягкий хук</span>
+              </div>
+              <p style="font-size:18px;line-height:1.82;color:var(--ink,#E6DFCB);margin:0 0 30px">
+                <span style="font-family:'Playfair Display',serif;font-weight:700;font-size:30px;color:var(--warm,#C9A24B);vertical-align:-2px;margin-right:2px">В</span>полумраке притона Нижнего города Ангвар слышит, как шёпот о грядущем переделе власти скользит между стен. Криминальные кланы уже сплели сети влияния, а за ними скрывается двойник, чьи намерения неопределимы, как отблеск факела на мокром камне. Переступишь порог — и путь поведёт туда, где власть проверяется не силой, а способностью увидеть себя в чужом лице.
+              </p>
+
+              <div style="display:flex;align-items:center;gap:8px;color:var(--warm,#C9A24B);font-size:14px;opacity:0.7;margin-bottom:28px;cursor:pointer"><span>›</span><span style="font-style:italic">думаю…</span></div>
+
+              <div style="display:flex;align-items:center;gap:10px;opacity:0.6"><span style="width:26px;height:26px;border-radius:50%;border:1px solid var(--rule,rgba(221,215,201,0.2));color:var(--soft,#8C8F87);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">✎</span><span style="font-style:italic;font-size:15px;color:var(--soft,#8C8F87)">Мастер пишет…</span></div>
+            </div>
+          </div>
+
+          <div style="width:320px;flex-shrink:0;border-left:1px solid var(--rule,rgba(221,215,201,0.12));background:var(--paper2,#191E24);overflow:auto;padding:24px 22px">
+            <div style="font-family:'Playfair Display',serif;font-size:25px;font-weight:700;color:var(--ink,#E6DFCB)">Ангвар</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--warm,#C9A24B);margin-top:4px">светлый эльф · 250 · преступник</div>
+
+            <div style="margin-top:20px">
+              <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;color:var(--soft,#8C8F87);margin-bottom:5px"><span>HP</span><span style="color:var(--ink,#E6DFCB)">63/63</span></div>
+              <div style="height:5px;border-radius:3px;background:var(--chipBg,rgba(221,215,201,0.08));overflow:hidden"><div style="width:100%;height:100%;background:var(--warm,#C9A24B)"></div></div>
+              <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;color:var(--soft,#8C8F87);margin:12px 0 5px"><span>ВЫНОС.</span><span style="color:var(--ink,#E6DFCB)">90/90</span></div>
+              <div style="height:5px;border-radius:3px;background:var(--chipBg,rgba(221,215,201,0.08));overflow:hidden"><div style="width:100%;height:100%;background:var(--accent,#C9A24B)"></div></div>
+            </div>
+
+            <div style="margin-top:22px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:var(--warm,#C9A24B)">След</span><span style="flex:1;height:1px;background:var(--rule,rgba(221,215,201,0.12))"></span></div><div style="font-size:15px">чисто · <span style="color:var(--soft,#8C8F87)">Тихий шаг</span></div></div>
+
+            <div style="margin-top:18px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:var(--warm,#C9A24B)">Бой · Интрига</span><span style="flex:1;height:1px;background:var(--rule,rgba(221,215,201,0.12))"></span></div>
+              <div style="font-size:15px">кинжал</div>
+              <div style="display:flex;justify-content:space-between;font-size:14px;margin-top:5px;color:var(--soft,#8C8F87)"><span>Прикрытия —</span><span>Схроны 0</span></div>
+            </div>
+
+            <div style="margin-top:18px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:var(--warm,#C9A24B)">Инвентарь</span><span style="flex:1;height:1px;background:var(--rule,rgba(221,215,201,0.12))"></span></div>
+              <div style="font-size:15px;line-height:1.7">Кинжал · Тёмный плащ<br><span style="color:var(--soft,#8C8F87)">Отмычки · Дорожный паёк</span></div>
+            </div>
+
+            <div style="margin-top:18px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-family:'Playfair Display',serif;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:var(--warm,#C9A24B)">Сюжет</span><span style="flex:1;height:1px;background:var(--rule,rgba(221,215,201,0.12))"></span></div><div style="font-size:14px;line-height:1.5">Арка: спасение · простолюдины · Юг</div></div>
+          </div>
+        </div>
+
+        <div style="flex-shrink:0;border-top:1px solid var(--rule,rgba(221,215,201,0.12));background:var(--paper2,#191E24);padding:13px 7%">
+          <div style="max-width:660px;margin:0 auto">
+            <div style="display:flex;gap:8px;margin-bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--warm,#C9A24B)">
+              <span style="padding:3px 12px;border:1px solid var(--chipBr,rgba(221,215,201,0.16));border-radius:4px;cursor:pointer">/go</span>
+              <span style="padding:3px 12px;border:1px solid var(--chipBr,rgba(221,215,201,0.16));border-radius:4px;cursor:pointer">/save</span>
+              <span style="padding:3px 12px;border:1px solid var(--chipBr,rgba(221,215,201,0.16));border-radius:4px;cursor:pointer">/ask</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--warm,#C9A24B);border-radius:8px;padding:12px 15px;background:var(--paper,#13171B)">
+              <span style="flex:1;font-style:italic;font-size:16px;color:var(--soft,#8C8F87)">Что ты делаешь?</span>
+              <span style="width:34px;height:34px;border-radius:7px;background:var(--warm,#C9A24B);color:#1a1206;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer">➤</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:3840,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { t1: 'paper', t2: 'paper', t3: 'ink' };
+
+  vars(dir, mode) {
+    const paper = { paper:'#ECE6D6', paper2:'#E5DDC9', panel:'#EFEADD', ink:'#2C281F', soft:'#7C7565', faint:'#A89E89', rule:'rgba(44,40,31,0.14)', rule2:'rgba(44,40,31,0.07)', chipBg:'rgba(44,40,31,0.05)', chipBr:'rgba(44,40,31,0.2)' };
+    const ink = { paper:'#13171B', paper2:'#191E24', panel:'#1C222A', ink:'#DDD7C9', soft:'#8C8F87', faint:'#5C615C', rule:'rgba(221,215,201,0.12)', rule2:'rgba(221,215,201,0.05)', chipBg:'rgba(221,215,201,0.04)', chipBr:'rgba(221,215,201,0.16)' };
+    const b = mode === 'ink' ? { ...ink } : { ...paper };
+    const acc = {
+      1: { paper:{accent:'#2F7D72',warm:'#9C5B3B'}, ink:{accent:'#6FBFB2',warm:'#C98A5B'} },
+      2: { paper:{accent:'#2E6F66',warm:'#B07A3C'}, ink:{accent:'#63B6AA',warm:'#D2A05A'} },
+      3: { paper:{accent:'#1F7A6E',warm:'#B5512F'}, ink:{accent:'#C9A24B',warm:'#C9A24B'} }
+    }[dir][mode === 'ink' ? 'ink' : 'paper'];
+    b.accent = acc.accent; b.warm = acc.warm;
+    b.bg = b.paper;
+    if (dir === 3 && mode === 'ink') { b.bg = 'radial-gradient(135% 95% at 50% -12%, #1e252c 0%, #0e1317 72%)'; b.ink = '#E6DFCB'; }
+    if (dir === 3 && mode !== 'ink') { b.paper = '#EFE7D2'; b.bg = '#EFE7D2'; b.paper2 = '#E8DEC4'; b.warm = '#B5512F'; b.accent = '#9C7A2E'; }
+    return b;
+  }
+
+  toVars(o) { const r = {}; Object.keys(o).forEach(k => { r['--' + k] = o[k]; }); return r; }
+
+  renderVals() {
+    return {
+      d1theme: this.toVars(this.vars(1, this.state.t1)),
+      d2theme: this.toVars(this.vars(2, this.state.t2)),
+      d3theme: this.toVars(this.vars(3, this.state.t3)),
+      t1ico: this.state.t1 === 'ink' ? '☀' : '☾',
+      t2ico: this.state.t2 === 'ink' ? '☀' : '☾',
+      t3ico: this.state.t3 === 'ink' ? '☀' : '☾',
+      flip1: () => this.setState(s => ({ t1: s.t1 === 'ink' ? 'paper' : 'ink' })),
+      flip2: () => this.setState(s => ({ t2: s.t2 === 'ink' ? 'paper' : 'ink' })),
+      flip3: () => this.setState(s => ({ t3: s.t3 === 'ink' ? 'paper' : 'ink' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -15,7 +15,7 @@ const STORAGE_KEY = 'rpg.settings.v2';
 
 const DEFAULTS: Settings = {
 	serverUrl: 'http://localhost:8787',
-	theme: 'dark',
+	theme: 'light', // «пергамент» по умолчанию; 'dark' = «тушь»
 	textScale: 1,
 	onboarded: false
 };
@@ -42,4 +42,10 @@ export function saveSettings(): void {
 	if (!browser) return;
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 	applySettings();
+}
+
+/** Переключить пергамент ⇄ тушь и сохранить. */
+export function toggleTheme(): void {
+	settings.theme = settings.theme === 'dark' ? 'light' : 'dark';
+	saveSettings();
 }

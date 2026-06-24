@@ -178,7 +178,7 @@
 	}
 	.primary {
 		background: var(--accent);
-		color: var(--ink-900);
+		color: var(--on-accent);
 		border: none;
 	}
 	.primary:disabled {
