@@ -307,9 +307,17 @@ export interface GameState {
 	world_state?: WorldState;
 	/** Активная боевая стычка (ТЗ §9.2), если идёт бой. */
 	combat?: CombatEncounter;
+	/** Скрытые счётчики практики (слой 1 прогрессии). */
+	progress?: ProgressState;
 	session: SessionState;
 	/** Какие версии правил действовали (для воспроизводимости; ТЗ §13). */
 	rules_versions?: Partial<Record<RuleName, string>>;
+}
+
+/** Слой 1 прогрессии (ТЗ §9.11): скрытые счётчики практики + выданные особенности. */
+export interface ProgressState {
+	counters: Record<string, number>;
+	granted: string[];
 }
 
 /** Активные модули персонажа (для гейтинга операций и адаптивного UI). */

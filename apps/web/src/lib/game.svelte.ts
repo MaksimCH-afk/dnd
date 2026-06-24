@@ -22,7 +22,8 @@ import {
 	type CombatStyle,
 	type GameState,
 	type Op,
-	type ApplyResult
+	type ApplyResult,
+	type ProposedArc
 } from '@rpg/engine';
 import { IdbStore } from './idb';
 
@@ -236,17 +237,19 @@ export async function resolveCombat(playerText: string): Promise<CombatOutcome |
 	const rng = makeRng(seedFromString(`combat|${game.state.session.day}|${game.state.combat.round}|${playerText.length}`));
 	const r = resolveExchange($state.snapshot(game.state), game.state.combat, { style, flee }, rng);
 
-	// Применяем урон/выносливость через движок (журналируется, клампится).
-	const ops: Op[] = [];
+	// Применяем урон/выносливость + практику боя через движок (журналируется, клампится).
+	const ops: Op[] = [{ op: 'progress.tick', activity: 'combat' }];
 	if (r.heroHpDelta) ops.push({ op: 'hp.change', delta: r.heroHpDelta, reason: 'бой' });
 	if (r.staminaDelta) ops.push({ op: 'stamina.change', delta: r.staminaDelta, reason: 'бой' });
-	if (ops.length) {
-		const applied = engineApply($state.snapshot(game.state), ops, { day: game.state.session.day });
-		game.state = applied.state;
-	}
+	const before = game.state.character.core.features.length;
+	const applied = engineApply($state.snapshot(game.state), ops, { day: game.state.session.day });
+	game.state = applied.state;
+	const cues = [...r.cues];
+	const newFeatures = game.state.character.core.features.slice(before);
+	for (const f of newFeatures) cues.push(`Ты чувствуешь, что окреп: «${f}».`);
 	game.state.combat = r.ended ? (undefined as never) : r.encounter;
 	await persist();
-	return { cues: r.cues, ended: r.ended, victory: r.victory, heroDown: r.heroDown };
+	return { cues, ended: r.ended, victory: r.victory, heroDown: r.heroDown };
 }
 
 /** Проверить и развернуть сработавшие seeds на текущий день (каждый ход). */
@@ -272,14 +275,14 @@ export async function worldTick(): Promise<string[]> {
 	return res.rumors;
 }
 
-/** Режиссёр предлагает следующую арку из неиспользованной комбинации (мягкий хук). */
-export async function directorPropose(): Promise<string | null> {
+/** Режиссёр выбирает арку из неиспользованной комбинации (детерминированно) и фиксирует её. */
+export async function directorPropose(): Promise<ProposedArc | null> {
 	if (!game.state) return null;
 	const rng = makeRng(seedFromString(`arc|${game.state.arcs.length}|${game.state.session.day}`));
 	const arc = pickNextArc(game.state.arcs, rng);
 	beginArc(game.state, arc);
 	await persist();
-	return arc.hook;
+	return arc;
 }
 
 /** Принять состояние (из git/импорта) в активную кампанию или создать новую. */

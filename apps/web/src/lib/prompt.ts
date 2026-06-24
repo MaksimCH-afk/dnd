@@ -38,6 +38,7 @@ npc.relationship{from,to,axis,delta,notes}, reputation.shift{faction,axis,delta,
 contract.offer{fields:{id,title,objectives,reward,deadline_day,faction}},
 contract.update{id,fields}, contract.close{id,status}, timer.add{label,due_day,type},
 combat.start{enemies:[{name,tier:слабый|обычный|опытный|монстр,weapon}]} (начать бой — урон/исход посчитает движок), combat.end,
+progress.tick{activity:persuade|stealth|craft|cast} (отметь значимую практику — движок сам выдаст особенность на вехе),
 power.set{state} (если маг), heat.change{delta,reason} (если intrigue), faith.shift{delta,reason} (если faith).
 scope фактов: public (все знают) | secret (только перечисленные в known_by) | player (только герой).
 ВАЖНО: NPC не может знать тайны героя, если они не в его known_by. Предлагай только реально произошедшее. Без блока — если состояние не менялось.`;

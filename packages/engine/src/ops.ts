@@ -149,6 +149,11 @@ export interface FeatureGrantOp {
 	name: string;
 	description: string;
 }
+export interface ProgressTickOp {
+	op: 'progress.tick';
+	activity: string;
+	n?: number;
+}
 export interface SpecializationOfferOp {
 	op: 'specialization.offer';
 	options: string[];
@@ -204,6 +209,7 @@ export type Op =
 	| CombatEndOp
 	| SeedPlantOp
 	| FeatureGrantOp
+	| ProgressTickOp
 	| SpecializationOfferOp
 	| PowerSetOp
 	| DarkcostAdvanceOp

@@ -23,6 +23,7 @@ export * from './encounter';
 export * from './economy';
 export * from './time';
 export * from './reputation';
+export * from './progression';
 export * from './seeds';
 export * from './director';
 export * from './worldsim';

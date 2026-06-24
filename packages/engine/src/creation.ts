@@ -316,6 +316,7 @@ export function createCharacter(choices: CreationChoices): GameState {
 		seeds: [],
 		arcs: [],
 		world_state: defaultWorldState(day),
+		progress: { counters: {}, granted: [] },
 		session: {
 			day,
 			time_of_day: 'утро',

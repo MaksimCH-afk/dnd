@@ -15,6 +15,7 @@
 	import { buildSaveBundle } from '$lib/reports';
 	import { commitAndPush, pull, readCanon } from '$lib/gitsync';
 	import { validateLeak } from '$lib/validator';
+	import { composeHook } from '$lib/director-llm';
 	import type { GameState } from '@rpg/engine';
 	import { streamLlm } from '$lib/llm';
 	import { buildNarratorMessages } from '$lib/prompt';
@@ -142,8 +143,11 @@
 
 	async function runDirector() {
 		if (!game.state) return;
-		const hook = await directorPropose();
-		if (hook) addEntry('system', `🎬 Режиссёр (мягкий хук, не приказ): ${hook}`);
+		const arc = await directorPropose();
+		if (!arc) return;
+		addEntry('system', '🎬 Режиссёр обдумывает поворот…');
+		const hook = await composeHook(settings.proxyUrl, arc, game.state);
+		addEntry('system', `🎬 Режиссёр (мягкий хук, не приказ): ${hook}`);
 	}
 
 	function changedItems(before: Map<string, number>): Set<string> {

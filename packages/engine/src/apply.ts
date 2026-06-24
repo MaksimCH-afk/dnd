@@ -15,6 +15,7 @@ import type { Contract, GameState, InventoryItem, ModuleName, NpcCore } from './
 import { tierFromHidden } from './reputation';
 import { startEncounter } from './encounter';
 import { makeRng } from './rng';
+import { unlockedAt } from './progression';
 
 export interface ApplyContext {
 	/** Текущий игровой день (для acquired_day/journal). */
@@ -464,6 +465,24 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 					planted_day: ctx.day
 				});
 				ok(op, `посеяно отложенное последствие: ${op.description}`);
+				break;
+			}
+
+			case 'progress.tick': {
+				if (!state.progress) state.progress = { counters: {}, granted: [] };
+				const prog = state.progress;
+				const next = (prog.counters[op.activity] ?? 0) + (op.n ?? 1);
+				prog.counters[op.activity] = next;
+				const unlocked = unlockedAt(op.activity, next).filter(
+					(t) => !prog.granted.includes(t.feature) && (!t.requiresModule || active.has(t.requiresModule))
+				);
+				for (const t of unlocked) {
+					prog.granted.push(t.feature);
+					if (!state.character.core.features.includes(t.feature)) {
+						state.character.core.features.push(t.feature);
+					}
+				}
+				ok(op, unlocked.length ? `практика ${op.activity}=${next} → особенность: ${unlocked.map((u) => u.feature).join(', ')}` : `практика ${op.activity}=${next}`);
 				break;
 			}
 
