@@ -309,6 +309,13 @@ export interface GameState {
 	combat?: CombatEncounter;
 	/** Скрытые счётчики практики (слой 1 прогрессии). */
 	progress?: ProgressState;
+	/**
+	 * Видимая хроника (проза) — для рендера клиентом и истории нарратора.
+	 * В hosted-режиме держится на сервере (раньше жила в браузере).
+	 */
+	transcript?: { speaker: 'player' | 'master' | 'system'; text: string; model?: string }[];
+	/** Ходов с последней арки (Режиссёр сам вступает между арками). */
+	turns_since_arc?: number;
 	session: SessionState;
 	/** Какие версии правил действовали (для воспроизводимости; ТЗ §13). */
 	rules_versions?: Partial<Record<RuleName, string>>;

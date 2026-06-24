@@ -1,8 +1,9 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import type { GameState } from '@rpg/engine';
+import { createCharacter, type CreationChoices, type GameState } from '@rpg/engine';
 import { loadConfig } from './config';
 import { Db } from './db';
 import { Campaigns } from './campaigns';
+import { runTurn, type TurnEvent } from './turn/run';
 
 const cfg = loadConfig();
 const db = new Db(cfg);
@@ -81,6 +82,43 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		return;
 	}
 
+	// POST /campaigns/new  { choices }  — создание персонажа на сервере (тонкий клиент)
+	if (req.method === 'POST' && path === '/campaigns/new') {
+		const body = await readJson<{ choices?: CreationChoices }>(req);
+		if (!body.choices?.name) {
+			json(res, 400, { error: 'нужны choices с именем' });
+			return;
+		}
+		const state = createCharacter(body.choices);
+		const id = await campaigns.create(body.choices.name, state);
+		json(res, 200, { id, state });
+		return;
+	}
+
+	// POST /turn  { campaignId, input }  — ход (SSE-стрим)
+	if (req.method === 'POST' && path === '/turn') {
+		const body = await readJson<{ campaignId?: string; input?: string }>(req);
+		if (!body.campaignId || !body.input) {
+			json(res, 400, { error: 'нужны campaignId и input' });
+			return;
+		}
+		res.writeHead(200, {
+			'Content-Type': 'text/event-stream; charset=utf-8',
+			'Cache-Control': 'no-cache, no-transform',
+			Connection: 'keep-alive',
+			'X-Accel-Buffering': 'no'
+		});
+		const send = (e: TurnEvent) => res.write(`data: ${JSON.stringify(e)}\n\n`);
+		try {
+			await runTurn(cfg, db, campaigns, body.campaignId, body.input, send);
+		} catch (e) {
+			send({ type: 'error', message: (e as Error).message, code: 'internal' });
+		} finally {
+			res.end();
+		}
+		return;
+	}
+
 	const m = path.match(/^\/campaigns\/([\w-]+)(\/(load|save|snapshots))?$/);
 	if (m) {
 		const id = m[1]!;
@@ -115,12 +153,6 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 			json(res, 200, { ok: true });
 			return;
 		}
-	}
-
-	// POST /turn — пайплайн хода (H1)
-	if (req.method === 'POST' && path === '/turn') {
-		json(res, 501, { error: 'пайплайн хода появится в H1' });
-		return;
 	}
 
 	json(res, 404, { error: 'не найдено' });
