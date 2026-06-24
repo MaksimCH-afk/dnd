@@ -11,7 +11,7 @@
 
 import type { Op, OpName } from './ops';
 import { OP_MODULE_REQUIREMENT } from './ops';
-import type { GameState, InventoryItem, ModuleName } from './state';
+import type { GameState, InventoryItem, ModuleName, NpcCore } from './state';
 
 export interface ApplyContext {
 	/** Текущий игровой день (для acquired_day/journal). */
@@ -226,6 +226,86 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 				} else {
 					reject(op, `фракция «${op.faction}» неизвестна (создаётся при первой встрече, Фаза 4)`);
 				}
+				break;
+			}
+
+			// --- NPC (ТЗ §4.6, §9.9) ---
+
+			case 'npc.spawn': {
+				const sc = op.seed_card as Partial<NpcCore> & {
+					id?: string;
+					persistent?: boolean;
+					location_id?: string;
+					mood?: string;
+				};
+				if (!sc.name || typeof sc.name !== 'string') {
+					reject(op, 'seed_card без имени');
+					break;
+				}
+				const id = sc.id ?? `npc_${state.npc.length}`;
+				if (state.npc.some((n) => n.id === id)) {
+					reject(op, `npc id ${id} уже занят`);
+					break;
+				}
+				const core: NpcCore = {
+					name: sc.name,
+					race: sc.race ?? 'человек',
+					age: sc.age ?? 30,
+					estate: sc.estate ?? 'простолюдин',
+					role: sc.role ?? 'прохожий',
+					speech_register: sc.speech_register ?? 'простой',
+					character: sc.character ?? 'обычный',
+					motivation: sc.motivation ?? '—',
+					secret: sc.secret ?? '—',
+					appearance: sc.appearance ?? ''
+				};
+				state.npc.push({
+					id,
+					persistent: sc.persistent ?? false,
+					core,
+					living: {
+						mood: sc.mood ?? 'нейтральное',
+						last_interactions: [],
+						last_seen_day: ctx.day,
+						...(sc.location_id ? { location_id: sc.location_id } : {})
+					}
+				});
+				ok(op, `NPC ${core.name} (${id})`);
+				break;
+			}
+
+			case 'npc.alter_core': {
+				const npc = state.npc.find((n) => n.id === op.id);
+				if (!npc) {
+					reject(op, `NPC ${op.id} не найден`);
+					break;
+				}
+				if (!op.cause || !String(op.cause).trim()) {
+					reject(op, 'npc.alter_core требует причину (защита от дрейфа, №4)');
+					break;
+				}
+				const allowed: (keyof NpcCore)[] = ['name', 'race', 'age', 'estate', 'role', 'speech_register', 'character', 'motivation', 'secret', 'appearance'];
+				const changed: string[] = [];
+				for (const k of allowed) {
+					if (k in op.fields && op.fields[k] != null) {
+						(npc.core[k] as unknown) = op.fields[k];
+						changed.push(k);
+					}
+				}
+				npc.core_changes = [...(npc.core_changes ?? []), { day: ctx.day, cause: op.cause, fields: changed }];
+				ok(op, `ядро ${npc.id} изменено [${changed.join(',')}] — причина: ${op.cause}`);
+				break;
+			}
+
+			case 'npc.relationship': {
+				const edge = state.relationships.find((r) => r.from === op.from && r.to === op.to && r.axis === op.axis);
+				if (edge) {
+					edge.level += op.delta;
+					if (op.notes) edge.notes = op.notes;
+				} else {
+					state.relationships.push({ from: op.from, to: op.to, axis: op.axis, level: op.delta, ...(op.notes ? { notes: op.notes } : {}) });
+				}
+				ok(op, `${op.from}→${op.to}/${op.axis} ${op.delta}`);
 				break;
 			}
 

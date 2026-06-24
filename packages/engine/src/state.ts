@@ -171,10 +171,40 @@ export interface Fact {
 	tags: string[];
 	created_day: number;
 }
+/**
+ * Запертое ядро NPC (ТЗ §4.6, решает №4): immutable-by-default. Меняется
+ * только операцией npc.alter_core с причиной. Модель не «вспоминает» личность —
+ * движок отдаёт ядро дословно каждый ход, дрейф невозможен.
+ */
+export interface NpcCore {
+	name: string;
+	race: Race;
+	age: number;
+	estate: string; // сословие
+	role: string;
+	speech_register: string; // речевой регистр
+	character: string; // ядро характера
+	motivation: string;
+	secret: string;
+	appearance: string;
+}
+
+/** Живой слой NPC (mutable): меняется свободно по ходу. */
+export interface NpcLiving {
+	mood: string;
+	location_id?: string;
+	last_interactions: string[];
+	last_seen_day?: number;
+}
+
 export interface Npc {
 	id: string;
-	core: Record<string, unknown>; // запертое ядро (ТЗ §4.6) — детализируется в Фазе 3
-	living: Record<string, unknown>;
+	/** Персистить (значимый) или эфемерный в рамках сцены (ТЗ §9.9). */
+	persistent: boolean;
+	core: NpcCore;
+	living: NpcLiving;
+	/** Лог изменений ядра (каждое — с причиной, ТЗ §4.6). */
+	core_changes?: { day: number; cause: string; fields: string[] }[];
 }
 export interface Relationship {
 	from: string;
