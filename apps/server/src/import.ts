@@ -14,7 +14,7 @@ import {
 	type Direction,
 	type ChatMessage
 } from '@rpg/engine';
-import { complete } from './openrouter';
+import { completeDetailed } from './openrouter';
 import type { ServerConfig } from './config';
 
 export interface ImportDocs {
@@ -113,10 +113,13 @@ export async function importGame(
 		const msgs = attempt === 0
 			? messages
 			: [...messages, { role: 'user' as const, content: 'Верни ТОЛЬКО валидный JSON-объект по схеме. Без пояснений, без markdown.' }];
-		const raw = await complete(cfg, 'narrator', msgs, { temperature: 0.2, maxTokens: 2200 });
+		const r = await completeDetailed(cfg, 'narrator', msgs, { temperature: 0.2, maxTokens: 2200 });
+		const raw = r.text;
 		lastRaw = raw;
 		if (!raw.trim()) {
-			lastErr = 'модель Ведущего вернула пустой ответ (проверьте ключ OpenRouter и лимиты модели)';
+			lastErr = r.error
+				? `модель Ведущего недоступна: ${r.error}. Укажите рабочий id модели в ⚙ Администрирование.`
+				: 'модель Ведущего вернула пустой ответ (проверьте ключ OpenRouter и лимиты модели)';
 			continue;
 		}
 		try {

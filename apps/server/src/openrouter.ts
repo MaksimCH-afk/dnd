@@ -152,3 +152,21 @@ export async function complete(cfg: ServerConfig, role: LlmRole, messages: ChatM
 	}
 	return out;
 }
+
+/** Как complete(), но возвращает и upstream-ошибку/модель (для диагностики, напр. импорта). */
+export async function completeDetailed(
+	cfg: ServerConfig,
+	role: LlmRole,
+	messages: ChatMessage[],
+	opts: CallOpts = {}
+): Promise<{ text: string; error?: string; model?: string }> {
+	let text = '';
+	let error: string | undefined;
+	let model: string | undefined;
+	for await (const ev of streamCompletion(cfg, role, messages, opts)) {
+		if (ev.type === 'delta') text += ev.text;
+		else if (ev.type === 'error') error = ev.message;
+		else if (ev.type === 'done') model = ev.meta.model;
+	}
+	return { text, ...(error ? { error } : {}), ...(model ? { model } : {}) };
+}
