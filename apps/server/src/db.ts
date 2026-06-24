@@ -65,13 +65,13 @@ export class Db {
 		`);
 	}
 
-	/** Сохранённые переопределения конфига (ключи/модели). Пусто — {}. */
-	async getConfigOverrides(): Promise<Record<string, unknown>> {
+	/** Весь конфиг-документ из БД: { overrides?, admin? }. Пусто — {}. */
+	async getConfig(): Promise<Record<string, unknown>> {
 		const r = await this.pool.query('SELECT data FROM config WHERE id = 1');
 		return (r.rows[0]?.data as Record<string, unknown>) ?? {};
 	}
 
-	async setConfigOverrides(data: unknown): Promise<void> {
+	async setConfig(data: unknown): Promise<void> {
 		await this.pool.query(
 			`INSERT INTO config (id, data, updated_at) VALUES (1, $1, now())
 			 ON CONFLICT (id) DO UPDATE SET data = $1, updated_at = now()`,

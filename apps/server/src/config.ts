@@ -1,3 +1,4 @@
+import { scryptSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { DEFAULT_MODEL_CONFIG, type AppModelConfig, type LlmRole } from '@rpg/engine';
 
 /** Конфиг app-сервера. Секреты (ключи) только здесь, в клиент не попадают. */
@@ -113,6 +114,29 @@ export function applyOverrides(cfg: ServerConfig, base: ConfigBaseline, ov: Conf
 	if (ov.models?.director) models.models.director.model = ov.models.director;
 	if (ov.models?.fallback) models.models.fallback_narrator.model = ov.models.fallback;
 	cfg.models = models;
+}
+
+// --- Пароль администратора (хранится хешем в БД; .env — лишь опциональный бутстрап) ---
+
+export interface AdminSecret {
+	salt: string;
+	hash: string;
+}
+
+export function hashPassword(pw: string): AdminSecret {
+	const salt = randomBytes(16).toString('hex');
+	const hash = scryptSync(pw, salt, 32).toString('hex');
+	return { salt, hash };
+}
+
+export function verifyPassword(pw: string, secret: AdminSecret): boolean {
+	try {
+		const h = scryptSync(pw, secret.salt, 32);
+		const want = Buffer.from(secret.hash, 'hex');
+		return h.length === want.length && timingSafeEqual(h, want);
+	} catch {
+		return false;
+	}
 }
 
 /** Безопасная для клиента картина конфига: какие ключи заданы (без значений) + модели. */

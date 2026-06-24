@@ -34,6 +34,47 @@
 	let adminErr = $state('');
 	let adminMsg = $state('');
 	let adminBusy = $state(false);
+	let adminConfigured = $state<boolean | null>(null); // null = ещё не проверяли
+	let newPass = $state('');
+	let newPass2 = $state('');
+
+	async function adminToggle() {
+		adminOpen = !adminOpen;
+		adminErr = '';
+		if (adminOpen && adminConfigured === null) await adminCheckStatus();
+	}
+
+	async function adminCheckStatus() {
+		adminBusy = true;
+		adminErr = '';
+		try {
+			const s = await adminApi.status(settings.serverUrl);
+			adminConfigured = s.configured;
+			if (!s.dbReady) adminErr = 'БД сервера недоступна — настройки нельзя сохранить.';
+		} catch (e) {
+			adminErr = (e as Error).message;
+		} finally {
+			adminBusy = false;
+		}
+	}
+
+	async function adminSetup() {
+		adminErr = '';
+		if (newPass.length < 4) { adminErr = 'пароль слишком короткий (минимум 4 символа)'; return; }
+		if (newPass !== newPass2) { adminErr = 'пароли не совпадают'; return; }
+		adminBusy = true;
+		try {
+			await adminApi.setPassword(settings.serverUrl, newPass);
+			adminPass = newPass;
+			adminConfigured = true;
+			newPass = newPass2 = '';
+			await adminLogin();
+		} catch (e) {
+			adminErr = (e as Error).message;
+		} finally {
+			adminBusy = false;
+		}
+	}
 
 	// поля моделей (предзаполняются текущими), поля ключей (всегда пустые — секреты не показываем)
 	let mNarrator = $state('');
@@ -156,12 +197,23 @@
 
 	<!-- Администрирование: ключи и модели по ролям (на сервере, под паролем) -->
 	<div class="admin">
-		<button class="admin-toggle" onclick={() => (adminOpen = !adminOpen)}>
+		<button class="admin-toggle" onclick={adminToggle}>
 			<span>{adminOpen ? '▾' : '▸'} Администрирование — ключи и модели</span>
 		</button>
 		{#if adminOpen}
-			{#if !adminView}
-				<p class="hint">Доступ под паролем (задаётся на сервере: <code class="mono">ADMIN_PASSWORD</code>). Секреты остаются на сервере.</p>
+			{#if adminConfigured === null}
+				<p class="hint">Проверяю сервер…</p>
+				{#if adminErr}<span class="err mono">✕ {adminErr}</span>{/if}
+			{:else if !adminConfigured}
+				<p class="hint">Первый запуск: задайте пароль администратора. Он хранится на сервере (в БД, хешем) — не в файлах. Дальше под ним правятся ключи и модели.</p>
+				<label class="arow"><span>Новый пароль</span><input type="password" class="mono" bind:value={newPass} placeholder="мин. 4 символа" /></label>
+				<label class="arow"><span>Ещё раз</span><input type="password" class="mono" bind:value={newPass2} /></label>
+				<div class="admin-actions">
+					<button class="save" onclick={adminSetup} disabled={adminBusy || !newPass}>{adminBusy ? '…' : 'Задать пароль'}</button>
+					{#if adminErr}<span class="err mono">✕ {adminErr}</span>{/if}
+				</div>
+			{:else if !adminView}
+				<p class="hint">Введите пароль администратора. Секреты остаются на сервере (в браузер не возвращаются).</p>
 				<div class="probe">
 					<input type="password" class="mono" bind:value={adminPass} placeholder="пароль администратора" />
 					<button onclick={adminLogin} disabled={adminBusy || !adminPass}>{adminBusy ? '…' : 'Войти'}</button>
@@ -186,7 +238,7 @@
 							<input
 								type="password"
 								class="mono"
-								placeholder={adminView!.keysSet[role] ? (adminView!.overridden.keys.includes(role) ? 'задан (админка)' : 'задан (.env)') : 'не задан'}
+								placeholder={adminView!.keysSet[role] ? (adminView!.overridden.keys.includes(role) ? 'задан (админка)' : 'задан (сервер)') : 'не задан'}
 								value={value}
 								oninput={(e) => set((e.currentTarget as HTMLInputElement).value)}
 							/>
@@ -212,8 +264,8 @@
 	</div>
 
 	<p class="note">
-		Ключи и модели меняются здесь (под паролем) или на сервере в <code class="mono">.env</code>.
-		Канон игры — в БД сервера. Клиент тонкий: секреты в браузере не хранятся.
+		Ключи, модели и пароль администратора задаются здесь и хранятся в БД сервера —
+		файл <code class="mono">.env</code> не нужен. Клиент тонкий: секреты в браузере не хранятся.
 	</p>
 </div>
 
