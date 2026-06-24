@@ -4,6 +4,14 @@
  */
 import type { CreationChoices, GameState } from '@rpg/engine';
 
+/**
+ * Нормализация базового адреса сервера. Пустая строка означает «тот же origin»
+ * (когда клиент раздаётся самим app-сервером) — используем относительные пути.
+ */
+function norm(base: string): string {
+	return (base ?? '').trim().replace(/\/+$/, '');
+}
+
 export interface CampaignRow {
 	id: string;
 	name: string;
@@ -25,12 +33,12 @@ export interface HealthInfo {
 }
 
 async function jget<T>(base: string, path: string): Promise<T> {
-	const r = await fetch(`${base}${path}`);
+	const r = await fetch(`${norm(base)}${path}`);
 	if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
 	return (await r.json()) as T;
 }
 async function jpost<T>(base: string, path: string, body?: unknown): Promise<T> {
-	const r = await fetch(`${base}${path}`, {
+	const r = await fetch(`${norm(base)}${path}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		...(body ? { body: JSON.stringify(body) } : {})
@@ -50,7 +58,7 @@ export const api = {
 	snapshots: (base: string, id: string) =>
 		jget<{ snapshots: SnapshotRow[] }>(base, `/campaigns/${id}/snapshots`).then((d) => d.snapshots),
 	remove: (base: string, id: string) =>
-		fetch(`${base}/campaigns/${id}`, { method: 'DELETE' }).then(() => undefined)
+		fetch(`${norm(base)}/campaigns/${id}`, { method: 'DELETE' }).then(() => undefined)
 };
 
 // --- Ход (SSE) ---

@@ -1,7 +1,9 @@
 # Развёртывание (hosted, ТЗ v1.2)
 
-App-сервер + Postgres/pgvector в Docker. Генеративные модели — в OpenRouter,
-**GPU не нужен**. Подробные требования к серверу — `docs/hosted_patch1.md` (Часть C).
+App-сервер (+ встроенный веб-клиент) + Postgres/pgvector в Docker. Генеративные
+модели — в OpenRouter, **GPU не нужен**. UI и API — на одном порту **8787**:
+после старта игра открывается в браузере по `http://<сервер>:8787/`, отдельно
+хостить клиент и вводить адрес сервера не нужно.
 
 ## Быстрый старт на VPS
 
@@ -16,12 +18,40 @@ git clone https://github.com/MaksimCH-afk/dnd.git && cd dnd
 cp apps/server/.env.example .env
 #   вписать OPENROUTER_API_KEY=...  (опц. ключи по ролям, POSTGRES_PASSWORD)
 
-# 4. Поднять сервер + БД
+# 4. Собрать и поднять (первая сборка качает образы и собирает клиент — несколько минут)
 docker compose up -d --build
 
 # 5. Проверить
-curl http://localhost:8787/health
+curl http://localhost:8787/health     # API
+#   и открыть http://<IP-сервера>:8787/ в браузере — это сам клиент
 ```
+
+> Первый ход после старта может «думать» дольше обычного: сервер один раз
+> скачивает модель эмбеддера RAG (bge-m3, ~1–2 ГБ) и кеширует её в томе.
+
+## Конкретный прогон (Ubuntu, root) — пошагово
+
+```bash
+# Docker (официальный скрипт)
+curl -fsSL https://get.docker.com | sh
+
+git clone https://github.com/MaksimCH-afk/dnd.git && cd dnd
+# Текущая разработка — в ветке claude/bold-bohr-zpjzbw (пока не слита в main):
+git checkout claude/bold-bohr-zpjzbw
+
+cp apps/server/.env.example .env
+nano .env            # OPENROUTER_API_KEY=sk-or-... ; (рекоменд.) POSTGRES_PASSWORD=<своё>
+
+docker compose up -d --build
+docker compose logs -f server     # дождаться «слушаю :8787»; Ctrl+C для выхода из логов
+```
+
+Открыть игру: `http://<IPv4-сервера>:8787/`. Откроется онбординг — поле адреса
+сервера оставить **пустым** (клиент сам обращается к этому же серверу) →
+«Подключиться» → «Новая игра».
+
+Файрвол (если включён ufw): `ufw allow 8787/tcp` — но для приватной игры лучше
+не открывать порт наружу, а ходить через Tailscale (ниже).
 
 ## Доступ (приватная игра)
 

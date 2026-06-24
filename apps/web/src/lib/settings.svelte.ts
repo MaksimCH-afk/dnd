@@ -14,7 +14,9 @@ export interface Settings {
 const STORAGE_KEY = 'rpg.settings.v2';
 
 const DEFAULTS: Settings = {
-	serverUrl: 'http://localhost:8787',
+	// Пусто = тот же origin, что и страница (клиент раздаётся app-сервером).
+	// Для отдельного хоста/планшета указывается адрес сервера в онбординге/настройках.
+	serverUrl: '',
 	theme: 'light', // «пергамент» по умолчанию; 'dark' = «тушь»
 	textScale: 1,
 	onboarded: false

@@ -1,8 +1,9 @@
-# Hosted-развёртывание (ТЗ v1.2): app-сервер + Postgres/pgvector.
+# Hosted-развёртывание (ТЗ v1.2): app-сервер (+ встроенный веб-клиент) + Postgres/pgvector.
 # Генеративные модели — в OpenRouter (GPU не нужен).
+# После старта игра доступна в браузере по http://<сервер>:8787/ (UI и API на одном порту).
 #
 # Запуск:  cp apps/server/.env.example .env  (вписать OPENROUTER_API_KEY)
-#          docker compose up -d
+#          docker compose up -d --build
 services:
   db:
     image: pgvector/pgvector:pg16

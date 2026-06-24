@@ -35,13 +35,14 @@ OpenRouter (генеративные модели; GPU не нужен)
 ```bash
 git clone https://github.com/MaksimCH-afk/dnd.git && cd dnd
 cp apps/server/.env.example .env          # вписать OPENROUTER_API_KEY (опц. ключи по ролям)
-docker compose up -d --build              # поднимает app-сервер + Postgres/pgvector
-curl http://localhost:8787/health         # проверка
+docker compose up -d --build              # app-сервер + встроенный веб-клиент + Postgres/pgvector
+curl http://localhost:8787/health         # проверка API
 ```
 
-Затем откройте клиент в браузере и в его настройках укажите адрес сервера
-(`http://<адрес-сервера>:8787`). Подробности (Tailscale для приватного доступа,
-Caddy+TLS для публичного, бэкапы) — в `docs/deploy.md`.
+Затем просто откройте в браузере **`http://<адрес-сервера>:8787/`** — это и есть
+игра (UI и API на одном порту, отдельно хостить клиент не нужно). В онбординге
+поле адреса сервера оставьте пустым. Подробности (Tailscale для приватного
+доступа, Caddy+TLS для публичного, бэкапы) — в `docs/deploy.md`.
 
 > **Приватный доступ (рекомендуется):** Tailscale — сервер не торчит в интернет,
 > открываете `http://<tailscale-ip>:8787`. **Публичный** — только с аутентификацией

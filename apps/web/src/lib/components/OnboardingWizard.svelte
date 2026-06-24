@@ -44,13 +44,13 @@
 	</header>
 
 	{#if step === 0}
-		<p>Укажите адрес игрового сервера. Ключи OpenRouter и модели настроены на сервере — в клиент вводить ничего не нужно.</p>
-		<input class="mono" bind:value={settings.serverUrl} placeholder="http://localhost:8787" />
+		<p>Если вы открыли эту страницу с игрового сервера — поле можно оставить пустым (клиент сам найдёт сервер). Ключи OpenRouter и модели настроены на сервере.</p>
+		<input class="mono" bind:value={settings.serverUrl} placeholder="оставьте пустым — этот сервер" />
 		<div class="row">
 			<button class="primary" onclick={check} disabled={checking}>{checking ? 'Проверяю…' : 'Подключиться'}</button>
 			{#if error}<span class="err mono">✕ {error}</span>{/if}
 		</div>
-		<small>Для игры с планшета укажите адрес компьютера/сервера в сети (или Tailscale-адрес).</small>
+		<small>Для игры с планшета, если клиент открыт не с сервера, укажите адрес сервера в сети (например <code>http://80.89.237.203:8787</code> или Tailscale-адрес).</small>
 	{:else}
 		<p>Сервер на связи{health ? ` (v${health.version}, БД: ${health.db ? 'ок' : 'нет'}, ключ: ${health.hasKey ? 'есть' : 'нет'})` : ''}. Начните новую игру или откройте сохранённую.</p>
 		{#if health && !health.hasKey}<p class="warn">⚠ На сервере не задан ключ OpenRouter — ходы не будут работать. Добавьте ключ в конфиге сервера.</p>{/if}

@@ -8,6 +8,8 @@ export interface ServerConfig {
 	referer: string | undefined;
 	title: string | undefined;
 	embedderModel: string;
+	/** Каталог собранного тонкого клиента (apps/web/build). Пусто — не раздавать статику. */
+	webDir: string | undefined;
 	models: AppModelConfig;
 	/** Ключ по умолчанию + переопределения по ролям. */
 	keys: {
@@ -34,6 +36,7 @@ export function loadConfig(): ServerConfig {
 		referer: process.env.OPENROUTER_REFERER || undefined,
 		title: process.env.OPENROUTER_TITLE || undefined,
 		embedderModel: process.env.EMBEDDER_MODEL || 'Xenova/bge-m3',
+		webDir: process.env.WEB_DIR || undefined,
 		models: DEFAULT_MODEL_CONFIG,
 		keys: {
 			default: process.env.OPENROUTER_API_KEY || undefined,

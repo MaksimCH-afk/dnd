@@ -37,7 +37,7 @@
 
 	<label class="field">
 		<span>Адрес сервера</span>
-		<input class="mono" bind:value={settings.serverUrl} onchange={commit} placeholder="http://localhost:8787" />
+		<input class="mono" bind:value={settings.serverUrl} onchange={commit} placeholder="пусто = этот сервер" />
 	</label>
 
 	<div class="field">

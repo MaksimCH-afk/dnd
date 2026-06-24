@@ -5,6 +5,7 @@ import { Db } from './db';
 import { Campaigns } from './campaigns';
 import { Rag } from './rag';
 import { runTurn, type TurnEvent } from './turn/run';
+import { serveStatic } from './static';
 
 const cfg = loadConfig();
 const db = new Db(cfg);
@@ -157,6 +158,9 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		}
 	}
 
+	// Не API-маршрут: пробуем отдать тонкий клиент (если собран и подключён).
+	if (cfg.webDir && serveStatic(req, res, cfg.webDir, path)) return;
+
 	json(res, 404, { error: 'не найдено' });
 }
 
@@ -171,6 +175,7 @@ async function main(): Promise<void> {
 		const key = cfg.keys.default || cfg.keys.narrator ? 'ключ задан' : 'ВНИМАНИЕ: ключ OpenRouter не задан';
 		console.log(`[server] слушаю :${cfg.port} — ${key}`);
 		console.log(`[server] CORS: ${cfg.corsOrigins.join(', ')}`);
+		console.log(cfg.webDir ? `[server] раздаю тонкий клиент из ${cfg.webDir}` : '[server] статика клиента не подключена (WEB_DIR пуст)');
 	});
 }
 
