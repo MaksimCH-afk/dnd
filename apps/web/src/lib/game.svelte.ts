@@ -104,6 +104,13 @@ export function newGame(): GameState {
 	return state;
 }
 
+/** Принять созданное состояние (из флоу создания) и сохранить. */
+export function commitState(state: GameState): void {
+	game.state = state;
+	game.lastApply = null;
+	void persist();
+}
+
 export function hasGame(): boolean {
 	return game.state !== null;
 }

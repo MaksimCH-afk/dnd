@@ -229,10 +229,54 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 				break;
 			}
 
+			// --- Модуль-зависимые (гейтинг выше уже пройден) ---
+
+			case 'power.set': {
+				state.character.modules.magic!.power = op.state;
+				ok(op, `Сила → ${op.state}`);
+				break;
+			}
+
+			case 'darkcost.advance': {
+				const magic = state.character.modules.magic!;
+				const existing = magic.dark_arcs.find((a) => a.arc === op.arc);
+				if (existing) {
+					existing.hidden_progress += 1;
+					existing.note = op.reason;
+				} else {
+					magic.dark_arcs.push({ arc: op.arc as never, note: op.reason, hidden_progress: 1 });
+				}
+				ok(op, `тёмная дуга «${op.arc}»: ${op.reason}`);
+				break;
+			}
+
+			case 'heat.change': {
+				const intr = state.character.modules.intrigue!;
+				intr.heat = Math.max(0, intr.heat + op.delta);
+				ok(op, `след ${op.delta} → ${intr.heat} (${op.reason})`);
+				break;
+			}
+
+			case 'faith.shift': {
+				const faith = state.character.modules.faith!;
+				faith.faith += op.delta;
+				ok(op, `вера ${op.delta} → ${faith.faith} (${op.reason})`);
+				break;
+			}
+
+			case 'craft.progress': {
+				const craft = state.character.modules.craft!;
+				if (typeof op.fields.level === 'string') craft.level = op.fields.level;
+				if (typeof op.fields.guild_status === 'string') craft.guild_status = op.fields.guild_status;
+				if (Array.isArray(op.fields.recipes)) craft.recipes = op.fields.recipes as string[];
+				ok(op, `ремесло обновлено`);
+				break;
+			}
+
 			default:
-				// Прочие операции (npc.*, contract.*, location.*, timer.*, power.set,
-				// darkcost.advance, и т.п.) реализуются в фазах 2–5.
-				reject(op, `операция пока не реализована (фаза 2–5)`);
+				// Прочие операции (npc.*, contract.*, location.*, timer.*,
+				// specialization.offer) реализуются в фазах 3–5.
+				reject(op, `операция пока не реализована (фаза 3–5)`);
 		}
 	}
 

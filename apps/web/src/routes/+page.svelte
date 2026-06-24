@@ -6,9 +6,11 @@
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
 	import RulesPanel from '$lib/components/RulesPanel.svelte';
 	import Ledger from '$lib/components/Ledger.svelte';
-	import { chronicle, addEntry } from '$lib/chronicle.svelte';
+	import CreationWizard from '$lib/components/CreationWizard.svelte';
+	import { chronicle, addEntry, clearChronicle } from '$lib/chronicle.svelte';
 	import { settings } from '$lib/settings.svelte';
-	import { game, loadGame, newGame, applyTurn } from '$lib/game.svelte';
+	import { game, loadGame, commitState, applyTurn } from '$lib/game.svelte';
+	import type { GameState } from '@rpg/engine';
 	import { streamLlm } from '$lib/llm';
 	import { buildNarratorMessages } from '$lib/prompt';
 	import { extractOps } from '$lib/ops-extract';
@@ -18,6 +20,7 @@
 	let busy = $state(false);
 	let showSettings = $state(false);
 	let showRules = $state(false);
+	let showCreation = $state(false);
 	let ledgerOpen = $state(true);
 	let highlight = $state<Set<string>>(new Set());
 
@@ -28,11 +31,14 @@
 		void loadGame();
 	});
 
-	function startNewGame() {
-		newGame();
-		const s = game.state!;
-		addEntry('system', `Новая игра (временный персонаж до флоу создания, Фаза 2).`);
-		addEntry('master', s.session.current_moment);
+	function onCreated(state: GameState) {
+		showCreation = false;
+		commitState(state);
+		clearChronicle();
+		const c = state.character.core;
+		const mods = Object.keys(state.character.modules).join(', ') || 'без модулей';
+		addEntry('system', `Создан персонаж: ${c.name}, ${c.race}, ${c.directions.join('/')} · модули: ${mods}.`);
+		addEntry('master', state.session.current_moment + '\n\nЧто ты делаешь?');
 	}
 
 	async function handleSend(text: string) {
@@ -177,8 +183,8 @@
 				<div class="empty-ledger">
 					<h2 class="mono">Гроссбух</h2>
 					<p>Игра не начата.</p>
-					<button class="newgame" onclick={startNewGame}>Новая игра</button>
-					<small>Временный персонаж-наёмник до флоу создания (Фаза 2).</small>
+					<button class="newgame" onclick={() => (showCreation = true)}>Новая игра</button>
+					<small>Создание персонажа: раса, направление, скрытая проверка таланта.</small>
 				</div>
 			{/if}
 		</aside>
@@ -190,6 +196,9 @@
 {/if}
 {#if showRules}
 	<RulesPanel onclose={() => (showRules = false)} />
+{/if}
+{#if showCreation}
+	<CreationWizard oncreated={onCreated} oncancel={() => (showCreation = false)} />
 {/if}
 
 <style>
