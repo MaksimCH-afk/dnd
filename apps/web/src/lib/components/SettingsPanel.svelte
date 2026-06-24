@@ -3,6 +3,7 @@
 	import { keys, setKey, clearKey } from '$lib/keys.svelte';
 	import { checkHealth, verifyKey } from '$lib/llm';
 	import { ragStatus, ensureEmbedder } from '$lib/rag.svelte';
+	import { ensureRepo } from '$lib/gitsync';
 	import type { HealthResponse } from '@rpg/engine';
 
 	interface Props {
@@ -60,6 +61,29 @@
 
 	function commit() {
 		saveSettings();
+	}
+
+	// --- Git-синхронизация ---
+	let gitToken = $state(keys.git);
+	let gitStatus = $state<{ ok: boolean; text: string } | null>(null);
+	let gitBusy = $state(false);
+	function saveGitToken() {
+		setKey(gitToken, 'git');
+		gitStatus = { ok: true, text: 'токен сохранён' };
+	}
+	async function testGit() {
+		gitBusy = true;
+		gitStatus = null;
+		setKey(gitToken, 'git');
+		saveSettings();
+		try {
+			const r = await ensureRepo();
+			gitStatus = { ok: r.ok, text: r.message };
+		} catch (e) {
+			gitStatus = { ok: false, text: (e as Error).message };
+		} finally {
+			gitBusy = false;
+		}
 	}
 </script>
 
@@ -172,6 +196,33 @@
 		{/if}
 	</div>
 
+	<div class="field">
+		<label class="check">
+			<input type="checkbox" bind:checked={settings.gitEnabled} onchange={commit} />
+			<span>Синхронизация канона через git (кросс-девайс)</span>
+		</label>
+		{#if settings.gitEnabled}
+			<input class="mono giturl" bind:value={settings.gitRepoUrl} onchange={commit} placeholder="https://github.com/user/repo.git" />
+			<div class="keyrow">
+				<input class="mono" bind:value={settings.gitBranch} onchange={commit} placeholder="ветка (main)" />
+				<input class="mono" type="password" bind:value={gitToken} placeholder="git-токен (PAT)" autocomplete="off" />
+			</div>
+			<div class="keyactions">
+				<button onclick={saveGitToken} disabled={!gitToken.trim()}>Сохранить токен</button>
+				<button onclick={testGit} disabled={gitBusy || !settings.gitRepoUrl}>
+					{gitBusy ? 'Проверяю…' : 'Проверить / клонировать'}
+				</button>
+			</div>
+			{#if gitStatus}
+				<span class="mono" class:ok={gitStatus.ok} class:err={!gitStatus.ok}>{gitStatus.ok ? '✓' : '✕'} {gitStatus.text}</span>
+			{/if}
+			<small class="hint">
+				`/save` коммитит и пушит канон, `/go` подтягивает. Канон — в этом репо;
+				файлы правил не затрагиваются. Токен хранится в браузере.
+			</small>
+		{/if}
+	</div>
+
 	<p class="note">
 		Прокси stateless: хранит и проксирует только LLM-вызовы, без игрового состояния.
 		Канон игры — в git-репозитории (синхронизация — Фаза 1).
@@ -270,6 +321,11 @@
 	}
 	.keyrow input {
 		flex: 1;
+		min-width: 0;
+	}
+	.giturl {
+		width: 100%;
+		margin-bottom: 0.5rem;
 	}
 	.ghost {
 		background: var(--surface-raised);

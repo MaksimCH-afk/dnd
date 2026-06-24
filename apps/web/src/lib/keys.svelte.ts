@@ -9,22 +9,24 @@
 
 import { browser } from '$app/environment';
 
-export type KeyProvider = 'openrouter';
+export type KeyProvider = 'openrouter' | 'git';
 
 interface KeyStore {
 	openrouter: string;
+	/** Токен git (GitHub PAT) для синхронизации канона. */
+	git: string;
 }
 
 const STORAGE_KEY = 'rpg.keys.v0';
 
 function load(): KeyStore {
-	if (!browser) return { openrouter: '' };
+	if (!browser) return { openrouter: '', git: '' };
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
-		if (!raw) return { openrouter: '' };
-		return { openrouter: '', ...(JSON.parse(raw) as Partial<KeyStore>) };
+		if (!raw) return { openrouter: '', git: '' };
+		return { openrouter: '', git: '', ...(JSON.parse(raw) as Partial<KeyStore>) };
 	} catch {
-		return { openrouter: '' };
+		return { openrouter: '', git: '' };
 	}
 }
 

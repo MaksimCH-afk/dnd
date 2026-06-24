@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^3.0.0",
-    "@rpg/engine": "workspace:*"
+    "@isomorphic-git/lightning-fs": "^4.6.0",
+    "@rpg/engine": "workspace:*",
+    "isomorphic-git": "^1.27.1"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.5",

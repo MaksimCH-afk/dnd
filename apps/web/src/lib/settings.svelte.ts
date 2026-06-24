@@ -13,6 +13,10 @@ export interface Settings {
 	/** Локальный RAG-поиск (transformers.js). Тяжёлая модель — по согласию. */
 	ragEnabled: boolean;
 	embedderModel: string;
+	/** Git-синхронизация канона (ТЗ §15, кросс-девайс). */
+	gitEnabled: boolean;
+	gitRepoUrl: string;
+	gitBranch: string;
 }
 
 const STORAGE_KEY = 'rpg.settings.v0';
@@ -23,7 +27,10 @@ const DEFAULTS: Settings = {
 	textScale: 1,
 	reducedMotion: false,
 	ragEnabled: false,
-	embedderModel: 'Xenova/multilingual-e5-small'
+	embedderModel: 'Xenova/multilingual-e5-small',
+	gitEnabled: false,
+	gitRepoUrl: '',
+	gitBranch: 'main'
 };
 
 function load(): Settings {

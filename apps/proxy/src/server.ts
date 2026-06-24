@@ -19,8 +19,62 @@ function setCors(req: IncomingMessage, res: ServerResponse): void {
 		res.setHeader('Vary', 'Origin');
 	}
 	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+	res.setHeader(
+		'Access-Control-Allow-Headers',
+		'Content-Type, Authorization, Accept, User-Agent, Git-Protocol, X-Requested-With, Content-Length'
+	);
+	res.setHeader('Access-Control-Expose-Headers', 'Content-Type, Content-Length');
 	res.setHeader('Access-Control-Max-Age', '86400');
+}
+
+/** Сырое тело запроса (для git-pack — бинарные данные). */
+async function readRawBody(req: IncomingMessage, limitBytes = 50_000_000): Promise<Buffer> {
+	return new Promise((resolve, reject) => {
+		let size = 0;
+		const chunks: Buffer[] = [];
+		req.on('data', (c: Buffer) => {
+			size += c.length;
+			if (size > limitBytes) {
+				reject(new Error('git-тело слишком большое'));
+				req.destroy();
+				return;
+			}
+			chunks.push(c);
+		});
+		req.on('end', () => resolve(Buffer.concat(chunks)));
+		req.on('error', reject);
+	});
+}
+
+/**
+ * Git-CORS-прокси (для isomorphic-git): /gitproxy/<host>/<path> → https://<host>/<path>.
+ * Пробрасывает метод, заголовки (вкл. Authorization) и бинарное тело pack-протокола.
+ * GitHub не отдаёт CORS для git — поэтому ходим через бэкенд.
+ */
+async function handleGitProxy(req: IncomingMessage, res: ServerResponse, rest: string): Promise<void> {
+	const target = `https://${rest}`;
+	const fwdHeaders: Record<string, string> = {};
+	for (const h of ['accept', 'content-type', 'user-agent', 'authorization', 'git-protocol']) {
+		const v = req.headers[h];
+		if (typeof v === 'string') fwdHeaders[h] = v;
+	}
+	if (!fwdHeaders['user-agent']) fwdHeaders['user-agent'] = 'git/isomorphic-git';
+
+	try {
+		const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await readRawBody(req);
+		const upstream = await fetch(target, {
+			method: req.method,
+			headers: fwdHeaders,
+			...(body && body.length ? { body } : {})
+		});
+		const buf = Buffer.from(await upstream.arrayBuffer());
+		res.statusCode = upstream.status;
+		const ct = upstream.headers.get('content-type');
+		if (ct) res.setHeader('Content-Type', ct);
+		res.end(buf);
+	} catch (err) {
+		json(res, 502, { error: `git-прокси: ${(err as Error).message}` });
+	}
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -134,6 +188,11 @@ const server = createServer((req, res) => {
 
 	if (req.method === 'POST' && path === '/verify') {
 		void handleVerify(req, res);
+		return;
+	}
+
+	if (path.startsWith('/gitproxy/')) {
+		void handleGitProxy(req, res, decodeURIComponent(path.slice('/gitproxy/'.length)) + url.search);
 		return;
 	}
 

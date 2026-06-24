@@ -12,6 +12,7 @@
 	import { game, loadGame, commitState, applyTurn, checkSeedsNow, directorPropose, importBundle } from '$lib/game.svelte';
 	import { isDarkScene } from '$lib/darkscene';
 	import { buildSaveBundle } from '$lib/reports';
+	import { commitAndPush, pull, readCanon } from '$lib/gitsync';
 	import type { GameState } from '@rpg/engine';
 	import { streamLlm } from '$lib/llm';
 	import { buildNarratorMessages } from '$lib/prompt';
@@ -140,10 +141,16 @@
 			addEntry('system', 'Нечего сохранять — игра не начата.');
 			return;
 		}
-		// Канон уже персистится в IndexedDB; здесь — экспорт бандла файлом.
-		const bundle = buildSaveBundle(game.state);
-		downloadFile(`save-day${game.state.session.day}.json`, bundle['canon.json']!);
-		addEntry('system', buildSaveReport(game.state, game.lastApply) + '\nСейв выгружен файлом.');
+		const report = buildSaveReport(game.state, game.lastApply);
+		if (settings.gitEnabled && settings.gitRepoUrl) {
+			addEntry('system', '⊙ Сохранение в git…');
+			const r = await commitAndPush(game.state, `save: День ${game.state.session.day}`);
+			addEntry('system', r.ok ? `${report}\n⊙ git: ${r.message}${r.commit ? ` (${r.commit})` : ''}` : `⚠ git: ${r.message}`);
+		} else {
+			const bundle = buildSaveBundle(game.state);
+			downloadFile(`save-day${game.state.session.day}.json`, bundle['canon.json']!);
+			addEntry('system', `${report}\nСейв выгружен файлом.`);
+		}
 	}
 
 	function downloadFile(name: string, content: string) {
@@ -171,7 +178,22 @@
 		addEntry('master', game.state!.session.current_moment);
 	}
 
-	function doGo() {
+	async function doGo() {
+		// С git: подтянуть канон с удалённого (продолжить с любого устройства).
+		if (settings.gitEnabled && settings.gitRepoUrl) {
+			addEntry('system', '⊙ Загрузка из git…');
+			const pr = await pull();
+			if (!pr.ok) addEntry('system', `⚠ git pull: ${pr.message}`);
+			const canon = await readCanon();
+			if (canon) {
+				commitState(canon);
+				clearChronicle();
+				addEntry('system', `⊙ Канон загружен из git. ${buildGoReport(canon)}`);
+				addEntry('master', canon.session.current_moment);
+				return;
+			}
+			addEntry('system', '⚠ В git нет канона — начните новую игру или сохраните текущую.');
+		}
 		if (!game.state) {
 			addEntry('system', 'Игра не начата. Нажмите «Новая игра» в гроссбухе.');
 			return;
