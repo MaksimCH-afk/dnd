@@ -25,17 +25,93 @@ import {
 import { IdbStore } from './idb';
 
 const store = browser ? new IdbStore<GameState>('rpg-game', 'state') : null;
-const KEY = 'current';
+
+// Мульти-кампании (ТЗ §15): реестр + слот состояния на кампанию.
+export interface CampaignMeta {
+	id: string;
+	name: string;
+}
+interface MetaDoc {
+	campaigns: CampaignMeta[];
+	activeId: string | null;
+}
+const metaStore = browser ? new IdbStore<MetaDoc>('rpg-meta', 'meta') : null;
+const META_KEY = 'meta';
+const stateKey = (id: string) => `c:${id}`;
+
+export const campaigns = $state<MetaDoc>({ campaigns: [], activeId: null });
 
 export const game = $state<{ state: GameState | null; lastApply: ApplyResult | null }>({
 	state: null,
 	lastApply: null
 });
 
+async function saveMeta(): Promise<void> {
+	if (metaStore) await metaStore.set(META_KEY, $state.snapshot(campaigns));
+}
+
+function slug(name: string): string {
+	return (
+		name
+			.toLowerCase()
+			.replace(/[^\p{L}\p{N}]+/gu, '-')
+			.replace(/^-+|-+$/g, '')
+			.slice(0, 24) || 'camp'
+	);
+}
+
 export async function loadGame(): Promise<void> {
+	if (!store || !metaStore) return;
+	const m = await metaStore.get(META_KEY);
+	if (m) {
+		campaigns.campaigns = m.campaigns;
+		campaigns.activeId = m.activeId;
+	}
+	if (campaigns.activeId) {
+		const saved = await store.get(stateKey(campaigns.activeId));
+		if (saved) game.state = migrate(saved).state; // миграция старых сейвов (ТЗ §15)
+	}
+}
+
+/** Список кампаний (для UI). */
+export function listCampaigns(): CampaignMeta[] {
+	return campaigns.campaigns;
+}
+
+/** Создать кампанию из готового состояния, сделать активной. */
+export async function createCampaign(name: string, state: GameState): Promise<string> {
+	let id = slug(name);
+	let n = 1;
+	while (campaigns.campaigns.some((c) => c.id === id)) id = `${slug(name)}-${++n}`;
+	campaigns.campaigns.push({ id, name });
+	campaigns.activeId = id;
+	game.state = state;
+	game.lastApply = null;
+	await saveMeta();
+	await persist();
+	return id;
+}
+
+/** Переключиться на кампанию. */
+export async function switchCampaign(id: string): Promise<void> {
 	if (!store) return;
-	const saved = await store.get(KEY);
-	if (saved) game.state = migrate(saved).state; // мигрируем старые сейвы (ТЗ §15)
+	campaigns.activeId = id;
+	const saved = await store.get(stateKey(id));
+	game.state = saved ? migrate(saved).state : null;
+	game.lastApply = null;
+	await saveMeta();
+}
+
+/** Удалить кампанию (и её слот). */
+export async function deleteCampaign(id: string): Promise<void> {
+	if (!store) return;
+	await store.delete(stateKey(id));
+	campaigns.campaigns = campaigns.campaigns.filter((c) => c.id !== id);
+	if (campaigns.activeId === id) {
+		campaigns.activeId = campaigns.campaigns[0]?.id ?? null;
+		game.state = campaigns.activeId ? migrate((await store.get(stateKey(campaigns.activeId)))!).state : null;
+	}
+	await saveMeta();
 }
 
 /** Импорт сейв-бандла (JSON-канон) — «загрузка как в любой игре». Возвращает ошибку или null. */
@@ -44,9 +120,14 @@ export async function importBundle(jsonText: string): Promise<string | null> {
 		const raw = JSON.parse(jsonText);
 		const canon = typeof raw === 'object' && raw && 'canon.json' in raw ? JSON.parse((raw as Record<string, string>)['canon.json']!) : raw;
 		const res = migrate(canon);
-		game.state = res.state;
-		game.lastApply = null;
-		await persist();
+		const name = res.state.character?.core?.name ?? 'Загруженная';
+		if (campaigns.activeId) {
+			game.state = res.state;
+			game.lastApply = null;
+			await persist();
+		} else {
+			await createCampaign(name, res.state);
+		}
 		return null;
 	} catch (e) {
 		return (e as Error).message;
@@ -54,7 +135,9 @@ export async function importBundle(jsonText: string): Promise<string | null> {
 }
 
 export async function persist(): Promise<void> {
-	if (store && game.state) await store.set(KEY, $state.snapshot(game.state));
+	if (store && game.state && campaigns.activeId) {
+		await store.set(stateKey(campaigns.activeId), $state.snapshot(game.state));
+	}
 }
 
 /** Применить операции хода через движок; обновить состояние и сохранить. */
@@ -159,11 +242,15 @@ export async function directorPropose(): Promise<string | null> {
 	return arc.hook;
 }
 
-/** Принять созданное состояние (из флоу создания) и сохранить. */
-export function commitState(state: GameState): void {
-	game.state = state;
-	game.lastApply = null;
-	void persist();
+/** Принять состояние (из git/импорта) в активную кампанию или создать новую. */
+export async function commitState(state: GameState): Promise<void> {
+	if (campaigns.activeId) {
+		game.state = state;
+		game.lastApply = null;
+		await persist();
+	} else {
+		await createCampaign(state.character?.core?.name ?? 'Кампания', state);
+	}
 }
 
 export function hasGame(): boolean {

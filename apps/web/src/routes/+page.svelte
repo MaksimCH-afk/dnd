@@ -9,7 +9,8 @@
 	import CreationWizard from '$lib/components/CreationWizard.svelte';
 	import { chronicle, addEntry, clearChronicle } from '$lib/chronicle.svelte';
 	import { settings } from '$lib/settings.svelte';
-	import { game, loadGame, commitState, applyTurn, checkSeedsNow, directorPropose, importBundle } from '$lib/game.svelte';
+	import { game, loadGame, createCampaign, commitState, applyTurn, checkSeedsNow, directorPropose, importBundle, campaigns } from '$lib/game.svelte';
+	import CampaignsPanel from '$lib/components/CampaignsPanel.svelte';
 	import { isDarkScene } from '$lib/darkscene';
 	import { buildSaveBundle } from '$lib/reports';
 	import { commitAndPush, pull, readCanon } from '$lib/gitsync';
@@ -25,6 +26,7 @@
 	let showSettings = $state(false);
 	let showRules = $state(false);
 	let showCreation = $state(false);
+	let showCampaigns = $state(false);
 	let ledgerOpen = $state(true);
 	let highlight = $state<Set<string>>(new Set());
 
@@ -35,9 +37,9 @@
 		void loadGame();
 	});
 
-	function onCreated(state: GameState) {
+	async function onCreated(state: GameState) {
 		showCreation = false;
-		commitState(state);
+		await createCampaign(state.character.core.name, state);
 		clearChronicle();
 		const c = state.character.core;
 		const mods = Object.keys(state.character.modules).join(', ') || 'без модулей';
@@ -250,6 +252,7 @@
 		{#if game.state}
 			<button class="icon" onclick={runDirector} aria-label="Режиссёр" title="Режиссёр: предложить новую арку">🎬</button>
 		{/if}
+		<button class="icon" onclick={() => (showCampaigns = true)} aria-label="Кампании" title="Кампании">📚</button>
 		<button class="icon" onclick={() => (showRules = true)} aria-label="Файлы правил" title="Файлы правил">📖</button>
 		<button class="icon" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>
 	</header>
@@ -294,6 +297,13 @@
 {/if}
 {#if showCreation}
 	<CreationWizard oncreated={onCreated} oncancel={() => (showCreation = false)} />
+{/if}
+{#if showCampaigns}
+	<CampaignsPanel
+		onclose={() => (showCampaigns = false)}
+		onnew={() => { showCampaigns = false; showCreation = true; }}
+		onswitched={() => { showCampaigns = false; clearChronicle(); if (game.state) addEntry('master', game.state.session.current_moment); }}
+	/>
 {/if}
 
 <style>

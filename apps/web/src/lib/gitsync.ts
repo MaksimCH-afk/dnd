@@ -14,6 +14,7 @@ import { migrate, type GameState } from '@rpg/engine';
 import { getKey } from './keys.svelte';
 import { settings } from './settings.svelte';
 import { buildSaveBundle } from './reports';
+import { campaigns } from './game.svelte';
 
 const fs = new LightningFS('rpg-git');
 const pfs = fs.promises;
@@ -26,8 +27,15 @@ function corsProxy(): string {
 function onAuth() {
 	return { username: getKey('git') || 'x-access-token' };
 }
+/** Активная кампания → имя ветки и рабочей директории (ТЗ §15: ветка на прохождение). */
+function activeId(): string {
+	return campaigns.activeId ?? 'default';
+}
+function branch(): string {
+	return campaigns.activeId ?? (settings.gitBranch || 'main');
+}
 /** Директория рабочего дерева кампании. */
-export function campaignDir(campaign = 'default'): string {
+export function campaignDir(campaign = activeId()): string {
 	return `/c/${campaign}`;
 }
 
@@ -58,7 +66,7 @@ export async function ensureRepo(dir = campaignDir()): Promise<SyncResult> {
 			http,
 			dir,
 			url,
-			ref: settings.gitBranch,
+			ref: branch(),
 			singleBranch: true,
 			depth: 10,
 			corsProxy: corsProxy(),
@@ -68,7 +76,7 @@ export async function ensureRepo(dir = campaignDir()): Promise<SyncResult> {
 	} catch (e) {
 		// Пустой репозиторий или нет ветки → init + remote, ветка создастся при push.
 		try {
-			await git.init({ fs, dir, defaultBranch: settings.gitBranch });
+			await git.init({ fs, dir, defaultBranch: branch() });
 			await git.addRemote({ fs, dir, remote: 'origin', url }).catch(() => undefined);
 			return { ok: true, message: `инициализирован (clone не удался: ${(e as Error).message})` };
 		} catch (e2) {
@@ -82,7 +90,7 @@ export async function pull(dir = campaignDir()): Promise<SyncResult> {
 	const r = await ensureRepo(dir);
 	if (!r.ok) return r;
 	try {
-		await git.pull({ fs, http, dir, ref: settings.gitBranch, singleBranch: true, fastForwardOnly: true, author: AUTHOR, corsProxy: corsProxy(), onAuth });
+		await git.pull({ fs, http, dir, ref: branch(), singleBranch: true, fastForwardOnly: true, author: AUTHOR, corsProxy: corsProxy(), onAuth });
 		return { ok: true, message: 'подтянуто' };
 	} catch (e) {
 		return { ok: false, message: `pull: ${(e as Error).message}` };
@@ -110,7 +118,7 @@ export async function commitAndPush(state: GameState, message: string, dir = cam
 			await git.add({ fs, dir, filepath: name });
 		}
 		const sha = await git.commit({ fs, dir, message, author: AUTHOR });
-		await git.push({ fs, http, dir, remote: 'origin', ref: settings.gitBranch, corsProxy: corsProxy(), onAuth });
+		await git.push({ fs, http, dir, remote: 'origin', ref: branch(), corsProxy: corsProxy(), onAuth });
 		return { ok: true, message: 'сохранено и отправлено', commit: sha.slice(0, 8) };
 	} catch (e) {
 		return { ok: false, message: `commit/push: ${(e as Error).message}` };
@@ -120,7 +128,7 @@ export async function commitAndPush(state: GameState, message: string, dir = cam
 /** Список коммитов (точки сохранения) для UI. */
 export async function history(dir = campaignDir(), depth = 20): Promise<{ oid: string; message: string }[]> {
 	try {
-		const log = await git.log({ fs, dir, depth, ref: settings.gitBranch });
+		const log = await git.log({ fs, dir, depth, ref: branch() });
 		return log.map((c) => ({ oid: c.oid.slice(0, 8), message: c.commit.message.split('\n')[0]! }));
 	} catch {
 		return [];
