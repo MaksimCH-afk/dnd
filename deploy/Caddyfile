@@ -1,0 +1,24 @@
+# Caddy: TLS + reverse-proxy для публичного доступа (ТЗ §C4 hosted-патча).
+# Замените example.com на ваш домен. Для приватного доступа предпочтительнее
+# Tailscale без публичного порта (тогда Caddy не нужен).
+#
+# При публичном доступе ОБЯЗАТЕЛЬНА аутентификация (basic-auth ниже), иначе
+# боты сожгут кредиты OpenRouter и прочитают данные.
+
+example.com {
+	# Базовая аутентификация (сгенерируйте хэш: `caddy hash-password`)
+	basicauth {
+		# admin <bcrypt-hash>
+	}
+
+	# Тонкий клиент (статика веб-сборки) — отдаётся как файлы.
+	# handle_path /assets/* { root * /srv/web ; file_server }
+
+	# API app-сервера
+	reverse_proxy /campaigns* server:8787
+	reverse_proxy /turn* server:8787
+	reverse_proxy /health server:8787
+
+	# Клиент (SPA)
+	reverse_proxy server:8787
+}

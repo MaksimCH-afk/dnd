@@ -1,0 +1,55 @@
+# Hosted-развёртывание (ТЗ v1.2): app-сервер + Postgres/pgvector.
+# Генеративные модели — в OpenRouter (GPU не нужен).
+#
+# Запуск:  cp apps/server/.env.example .env  (вписать OPENROUTER_API_KEY)
+#          docker compose up -d
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rpg
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rpg}
+      POSTGRES_DB: rpg
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rpg']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://rpg:${POSTGRES_PASSWORD:-rpg}@db:5432/rpg
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_KEY_NARRATOR: ${OPENROUTER_KEY_NARRATOR:-}
+      OPENROUTER_KEY_VALIDATOR: ${OPENROUTER_KEY_VALIDATOR:-}
+      OPENROUTER_KEY_DIRECTOR: ${OPENROUTER_KEY_DIRECTOR:-}
+      OPENROUTER_KEY_FALLBACK: ${OPENROUTER_KEY_FALLBACK:-}
+      EMBEDDER_MODEL: ${EMBEDDER_MODEL:-Xenova/bge-m3}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      PORT: 8787
+    ports:
+      - '8787:8787'
+
+  # Reverse-proxy + TLS (для публичного доступа). Для Tailscale-доступа не обязателен.
+  # caddy:
+  #   image: caddy:2
+  #   restart: unless-stopped
+  #   depends_on: [server]
+  #   ports: ['80:80', '443:443']
+  #   volumes:
+  #     - ./deploy/Caddyfile:/etc/caddy/Caddyfile
+  #     - caddy_data:/data
+
+volumes:
+  pgdata:
+  # caddy_data:

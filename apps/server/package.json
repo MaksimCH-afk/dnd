@@ -1,0 +1,22 @@
+{
+  "name": "@rpg/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "App-сервер (hosted): движок, состояние в Postgres/pgvector, эмбеддер, прокси к OpenRouter",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node --import tsx src/server.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rpg/engine": "workspace:*",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}
