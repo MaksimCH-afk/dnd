@@ -9,7 +9,7 @@
 	import CreationWizard from '$lib/components/CreationWizard.svelte';
 	import { chronicle, addEntry, clearChronicle } from '$lib/chronicle.svelte';
 	import { settings } from '$lib/settings.svelte';
-	import { game, loadGame, commitState, applyTurn } from '$lib/game.svelte';
+	import { game, loadGame, commitState, applyTurn, checkSeedsNow, directorPropose } from '$lib/game.svelte';
 	import type { GameState } from '@rpg/engine';
 	import { streamLlm } from '$lib/llm';
 	import { buildNarratorMessages } from '$lib/prompt';
@@ -110,6 +110,16 @@
 			master.streaming = false;
 			busy = false;
 		}
+
+		// Проверка отложенных последствий (seeds) после хода (№1).
+		const fired = await checkSeedsNow();
+		for (const f of fired) addEntry('system', `⟳ Мир помнит: ${f}`);
+	}
+
+	async function runDirector() {
+		if (!game.state) return;
+		const hook = await directorPropose();
+		if (hook) addEntry('system', `🎬 Режиссёр (мягкий хук, не приказ): ${hook}`);
 	}
 
 	function changedItems(before: Map<string, number>): Set<string> {
@@ -183,6 +193,9 @@
 				<span class="sync">⊙</span> Пролог
 			{/if}
 		</div>
+		{#if game.state}
+			<button class="icon" onclick={runDirector} aria-label="Режиссёр" title="Режиссёр: предложить новую арку">🎬</button>
+		{/if}
 		<button class="icon" onclick={() => (showRules = true)} aria-label="Файлы правил" title="Файлы правил">📖</button>
 		<button class="icon" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>
 	</header>

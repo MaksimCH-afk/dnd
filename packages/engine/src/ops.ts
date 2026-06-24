@@ -130,6 +130,13 @@ export interface TimerFireOp {
 	op: 'timer.fire';
 	id: string;
 }
+export interface SeedPlantOp {
+	op: 'seed.plant';
+	description: string;
+	trigger: { type: 'time' | 'location' | 'faction_threshold' | 'random' | 'flag'; params: Record<string, unknown> };
+	payload?: Record<string, unknown>;
+	tags: string[];
+}
 export interface FeatureGrantOp {
 	op: 'feature.grant';
 	name: string;
@@ -186,6 +193,7 @@ export type Op =
 	| LocationNoteOp
 	| TimerAddOp
 	| TimerFireOp
+	| SeedPlantOp
 	| FeatureGrantOp
 	| SpecializationOfferOp
 	| PowerSetOp

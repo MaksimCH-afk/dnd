@@ -435,6 +435,19 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 				break;
 			}
 
+			case 'seed.plant': {
+				state.seeds.push({
+					id: `seed_${state.seeds.length}`,
+					description: op.description,
+					trigger: op.trigger,
+					payload: op.payload ?? {},
+					tags: op.tags ?? [],
+					planted_day: ctx.day
+				});
+				ok(op, `посеяно отложенное последствие: ${op.description}`);
+				break;
+			}
+
 			case 'specialization.offer': {
 				state.session.open_threads.push(`Специализация на выбор: ${op.options.join(' / ')}`);
 				ok(op, `предложены специализации: ${op.options.join(', ')}`);

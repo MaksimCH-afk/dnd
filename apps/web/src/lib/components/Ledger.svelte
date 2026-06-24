@@ -167,6 +167,20 @@
 		</section>
 	{/if}
 
+	<!-- Арка / отложенные последствия -->
+	{#if state.arcs.length || state.seeds.length}
+		<section>
+			<h4>Сюжет</h4>
+			{#if state.arcs.length}
+				{@const arc = state.arcs[state.arcs.length - 1]}
+				<p class="line">Арка: {arc.tags.slice(0, 3).join(' · ')}</p>
+			{/if}
+			{#if state.seeds.length}
+				<p class="line dim">Отложенных нитей: {state.seeds.length}</p>
+			{/if}
+		</section>
+	{/if}
+
 	<!-- Капитал -->
 	<section>
 		<h4>Капитал</h4>
@@ -255,6 +269,10 @@
 	.line.dark {
 		color: var(--danger);
 		font-style: italic;
+	}
+	.line.dim {
+		color: var(--text-dim);
+		opacity: 0.8;
 	}
 	.slot-title {
 		font-size: 0.7em;

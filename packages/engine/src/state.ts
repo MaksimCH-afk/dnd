@@ -260,6 +260,24 @@ export interface Arc {
 	motifs_used: string[];
 }
 
+/** Состояние мира для мир-симуляции (ТЗ §4.4, §12). */
+export interface FactionState {
+	name: string;
+	/** Сила/влияние (грубо). */
+	power: number;
+	mood: string;
+}
+export interface RegionState {
+	name: string;
+	notes: string;
+}
+export interface WorldState {
+	/** Мировые часы — день последнего тика симуляции. */
+	clock_day: number;
+	factions: FactionState[];
+	regions: RegionState[];
+}
+
 export interface SessionState {
 	day: number;
 	time_of_day: 'утро' | 'день' | 'вечер' | 'ночь';
@@ -285,6 +303,7 @@ export interface GameState {
 	chronicle: ChronicleRecord[];
 	seeds: Seed[];
 	arcs: Arc[];
+	world_state?: WorldState;
 	session: SessionState;
 	/** Какие версии правил действовали (для воспроизводимости; ТЗ §13). */
 	rules_versions?: Partial<Record<RuleName, string>>;

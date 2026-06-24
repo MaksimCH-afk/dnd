@@ -10,6 +10,12 @@
 import { browser } from '$app/environment';
 import {
 	applyOps as engineApply,
+	makeRng,
+	seedFromString,
+	tickSeeds,
+	tickWorld,
+	pickNextArc,
+	beginArc,
 	SCHEMA_VERSION,
 	type GameState,
 	type Op,
@@ -102,6 +108,39 @@ export function newGame(): GameState {
 	game.state = state;
 	void persist();
 	return state;
+}
+
+/** Проверить и развернуть сработавшие seeds на текущий день (каждый ход). */
+export async function checkSeedsNow(): Promise<string[]> {
+	if (!game.state) return [];
+	const day = game.state.session.day;
+	const rng = makeRng(seedFromString(`seeds|${day}|${game.state.seeds.length}`));
+	const res = tickSeeds($state.snapshot(game.state), day, rng);
+	if (res.fired.length) {
+		game.state = res.state;
+		await persist();
+	}
+	return res.fired.map((f) => f.description);
+}
+
+/** Офлайн-тик мира (между арками): фракции двигаются, рождаются слухи/seeds. */
+export async function worldTick(): Promise<string[]> {
+	if (!game.state) return [];
+	const rng = makeRng(seedFromString(`world|${game.state.session.day}|${game.state.facts.length}`));
+	const res = tickWorld($state.snapshot(game.state), rng);
+	game.state = res.state;
+	await persist();
+	return res.rumors;
+}
+
+/** Режиссёр предлагает следующую арку из неиспользованной комбинации (мягкий хук). */
+export async function directorPropose(): Promise<string | null> {
+	if (!game.state) return null;
+	const rng = makeRng(seedFromString(`arc|${game.state.arcs.length}|${game.state.session.day}`));
+	const arc = pickNextArc(game.state.arcs, rng);
+	beginArc(game.state, arc);
+	await persist();
+	return arc.hook;
 }
 
 /** Принять созданное состояние (из флоу создания) и сохранить. */

@@ -7,6 +7,7 @@
  */
 
 import { makeRng, seedFromString, type Rng } from './rng';
+import { defaultWorldState } from './worldsim';
 import type { ReputationAxis } from './ops';
 import {
 	SCHEMA_VERSION,
@@ -314,6 +315,7 @@ export function createCharacter(choices: CreationChoices): GameState {
 		chronicle: [],
 		seeds: [],
 		arcs: [],
+		world_state: defaultWorldState(day),
 		session: {
 			day,
 			time_of_day: 'утро',
