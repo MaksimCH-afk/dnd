@@ -7,3 +7,11 @@ packages:
 # из-за чего свежие официальные релизы Svelte ломали установку. minimumReleaseAge: 0
 # снимает блок только для этого репозитория. (Глобально отключать не стоит.)
 minimumReleaseAge: 0
+
+# Разрешённые сборочные скрипты зависимостей (pnpm 11 читает это здесь, а не в
+# package.json). Без esbuild не соберётся клиент; onnxruntime-node/protobufjs —
+# для серверного эмбеддера RAG.
+onlyBuiltDependencies:
+  - esbuild
+  - onnxruntime-node
+  - protobufjs
