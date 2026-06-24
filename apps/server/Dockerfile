@@ -2,7 +2,7 @@
 # Образ собирает веб-клиент (apps/web) и раздаёт его тем же сервером (единый origin).
 
 # --- Этап 1: сборка тонкого клиента (статика) ---
-FROM node:20-slim AS web
+FROM node:22-slim AS web
 RUN corepack enable
 WORKDIR /app
 
@@ -20,7 +20,7 @@ COPY apps/web apps/web
 RUN pnpm --filter @rpg/web build
 
 # --- Этап 2: рантайм app-сервера ---
-FROM node:20-slim
+FROM node:22-slim
 RUN corepack enable
 WORKDIR /app
 
