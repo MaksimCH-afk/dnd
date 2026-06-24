@@ -5,6 +5,7 @@
 	import StatusThread from '$lib/components/StatusThread.svelte';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
 	import CampaignsPanel from '$lib/components/CampaignsPanel.svelte';
+	import ReferencePanel from '$lib/components/ReferencePanel.svelte';
 	import CreationWizard from '$lib/components/CreationWizard.svelte';
 	import OnboardingWizard from '$lib/components/OnboardingWizard.svelte';
 	import Ledger from '$lib/components/Ledger.svelte';
@@ -15,6 +16,7 @@
 
 	let showSettings = $state(false);
 	let showCampaigns = $state(false);
+	let showReference = $state(false);
 	let showCreation = $state(false);
 	let showOnboarding = $state(false);
 	let ledgerOpen = $state(true);
@@ -82,6 +84,7 @@
 			{/if}
 		</div>
 		<button class="icon" onclick={() => (showCampaigns = true)} aria-label="Кампании" title="Кампании">📚</button>
+		<button class="icon" onclick={() => (showReference = true)} aria-label="Справка по моделям" title="Справка: платные модели на роль Ведущего">💳</button>
 		<button class="icon" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>
 	</header>
 
@@ -119,6 +122,7 @@
 		onpicked={() => (showCampaigns = false)}
 	/>
 {/if}
+{#if showReference}<ReferencePanel onclose={() => (showReference = false)} />{/if}
 {#if showCreation}<CreationWizard oncreated={onCreated} oncancel={() => (showCreation = false)} />{/if}
 {#if showOnboarding}
 	<OnboardingWizard
