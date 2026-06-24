@@ -23,6 +23,25 @@ export interface ServerConfig {
 
 export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+/**
+ * Конфиг моделей: дефолты движка + переопределения из env по ролям.
+ *   OPENROUTER_MODEL_NARRATOR / _VALIDATOR / _DIRECTOR / _FALLBACK — основной id
+ *   OPENROUTER_MODEL_NARRATOR_ALT и т.п. — альтернатива (опц.)
+ * Так можно поставить платного Ведущего, не трогая код.
+ */
+export function buildModels(): AppModelConfig {
+	const cfg = structuredClone(DEFAULT_MODEL_CONFIG);
+	const set = (role: keyof AppModelConfig['models'], model?: string, alt?: string) => {
+		if (model) cfg.models[role].model = model;
+		if (alt) cfg.models[role].alternative = alt;
+	};
+	set('narrator', process.env.OPENROUTER_MODEL_NARRATOR, process.env.OPENROUTER_MODEL_NARRATOR_ALT);
+	set('validator', process.env.OPENROUTER_MODEL_VALIDATOR, process.env.OPENROUTER_MODEL_VALIDATOR_ALT);
+	set('director', process.env.OPENROUTER_MODEL_DIRECTOR, process.env.OPENROUTER_MODEL_DIRECTOR_ALT);
+	set('fallback_narrator', process.env.OPENROUTER_MODEL_FALLBACK);
+	return cfg;
+}
+
 export function loadConfig(): ServerConfig {
 	const port = Number.parseInt(process.env.PORT ?? '', 10) || 8787;
 	const corsOrigins = (process.env.CORS_ORIGINS ?? '*')
@@ -37,7 +56,7 @@ export function loadConfig(): ServerConfig {
 		title: process.env.OPENROUTER_TITLE || undefined,
 		embedderModel: process.env.EMBEDDER_MODEL || 'Xenova/bge-m3',
 		webDir: process.env.WEB_DIR || undefined,
-		models: DEFAULT_MODEL_CONFIG,
+		models: buildModels(),
 		keys: {
 			default: process.env.OPENROUTER_API_KEY || undefined,
 			...(process.env.OPENROUTER_KEY_NARRATOR ? { narrator: process.env.OPENROUTER_KEY_NARRATOR } : {}),
