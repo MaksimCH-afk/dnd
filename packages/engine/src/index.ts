@@ -25,3 +25,4 @@ export * from './reputation';
 export * from './seeds';
 export * from './director';
 export * from './worldsim';
+export * from './migrate';
