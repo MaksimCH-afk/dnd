@@ -1,0 +1,22 @@
+{
+  "name": "text-rpg",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local-first PWA для соло текстового НРИ: детерминированный движок состояния + LLM-связка через OpenRouter",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:web": "pnpm --filter @rpg/web dev",
+    "dev:proxy": "pnpm --filter @rpg/proxy dev",
+    "build": "pnpm -r build",
+    "check": "pnpm -r check",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
