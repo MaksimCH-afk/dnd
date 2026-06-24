@@ -16,6 +16,7 @@
 	import { extractOps } from '$lib/ops-extract';
 	import { threadModel, statusFields } from '$lib/status';
 	import { buildGoReport, buildSaveReport } from '$lib/reports';
+	import { retrieve, indexItem } from '$lib/rag.svelte';
 
 	let busy = $state(false);
 	let showSettings = $state(false);
@@ -52,7 +53,21 @@
 			return;
 		}
 		addEntry('player', playerText);
-		const messages = buildNarratorMessages(game.state, chronicle.entries, playerText);
+
+		// RAG-ретривал (если включён): top-k релевантного из памяти мира (№2).
+		let retrieved: string[] = [];
+		if (settings.ragEnabled) {
+			try {
+				const r = await retrieve(`${playerText} ${game.state.session.current_moment}`);
+				retrieved = r.map((x) => x.text);
+			} catch {
+				/* эмбеддер недоступен — продолжаем без RAG */
+			}
+		}
+
+		const factsBefore = game.state.facts.length;
+		const npcBefore = game.state.npc.length;
+		const messages = buildNarratorMessages(game.state, chronicle.entries, playerText, retrieved);
 		const master = addEntry('master', '', true);
 		busy = true;
 		try {
@@ -77,6 +92,15 @@
 					highlight = changedItems(before);
 					if (res.rejected.length) {
 						addEntry('system', `Движок отклонил ${res.rejected.length} оп.: ${res.rejected.map((r) => r.reason).join('; ')}`);
+					}
+					// Индексируем новые факты/NPC в RAG (если включён).
+					if (settings.ragEnabled && game.state) {
+						for (const f of game.state.facts.slice(factsBefore)) {
+							void indexItem({ id: f.id, kind: 'fact', text: f.text, day: f.created_day });
+						}
+						for (const n of game.state.npc.slice(npcBefore)) {
+							void indexItem({ id: n.id, kind: 'npc', text: `${n.core.name}: ${n.core.role}, ${n.core.character}`, day: game.state.session.day });
+						}
 					}
 				}
 			}

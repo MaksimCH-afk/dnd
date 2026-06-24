@@ -52,4 +52,8 @@ export class IdbStore<T> {
 	keys(): Promise<string[]> {
 		return this.tx<string[]>('readonly', (s) => s.getAllKeys() as IDBRequest) as Promise<string[]>;
 	}
+
+	getAll(): Promise<T[]> {
+		return this.tx<T[]>('readonly', (s) => s.getAll() as IDBRequest) as Promise<T[]>;
+	}
 }

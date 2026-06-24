@@ -10,6 +10,9 @@ export interface Settings {
 	theme: 'dark' | 'light';
 	textScale: number;
 	reducedMotion: boolean;
+	/** Локальный RAG-поиск (transformers.js). Тяжёлая модель — по согласию. */
+	ragEnabled: boolean;
+	embedderModel: string;
 }
 
 const STORAGE_KEY = 'rpg.settings.v0';
@@ -18,7 +21,9 @@ const DEFAULTS: Settings = {
 	proxyUrl: 'http://localhost:8787',
 	theme: 'dark',
 	textScale: 1,
-	reducedMotion: false
+	reducedMotion: false,
+	ragEnabled: false,
+	embedderModel: 'Xenova/multilingual-e5-small'
 };
 
 function load(): Settings {

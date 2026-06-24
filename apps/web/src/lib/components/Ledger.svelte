@@ -119,6 +119,27 @@
 		{/each}
 	</section>
 
+	<!-- NPC (значимые/в сцене) -->
+	{#if state.npc.length}
+		<section>
+			<h4>Лица</h4>
+			<ul class="npcs">
+				{#each state.npc as n (n.id)}
+					<li class:scene={state.session.npcs_in_scene.includes(n.id)}>
+						<div class="npc-head">
+							<b>{n.core.name}</b>
+							<span class="npc-mood">{n.living.mood}</span>
+						</div>
+						<span class="npc-sub mono">{n.core.race}, {n.core.role}</span>
+						{#if n.core_changes?.length}
+							<span class="npc-sub dim">⟳ изменён ({n.core_changes.at(-1)!.cause})</span>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
 	<!-- Капитал -->
 	<section>
 		<h4>Капитал</h4>
@@ -235,6 +256,41 @@
 	.items .qty {
 		color: var(--text-dim);
 		font-size: 0.85em;
+	}
+	.npcs {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.npcs li {
+		padding: 0.4rem 0.5rem;
+		border-radius: 6px;
+		background: var(--ink-900);
+		border: 1px solid var(--border);
+	}
+	.npcs li.scene {
+		border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+	}
+	.npc-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+	}
+	.npc-mood {
+		font-size: 0.72em;
+		color: var(--text-dim);
+	}
+	.npc-sub {
+		display: block;
+		font-size: 0.72em;
+		color: var(--text-dim);
+	}
+	.npc-sub.dim {
+		opacity: 0.7;
+		font-style: italic;
 	}
 	.capital {
 		font-size: 1.05em;

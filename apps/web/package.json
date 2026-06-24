@@ -10,6 +10,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.0.0",
     "@rpg/engine": "workspace:*"
   },
   "devDependencies": {

@@ -5,7 +5,7 @@
  */
 
 import type { ChatMessage, GameState } from '@rpg/engine';
-import { activeModules } from '@rpg/engine';
+import { activeModules, buildNpcContext } from '@rpg/engine';
 import type { ChronicleEntry } from './chronicle.svelte';
 import { statusFields } from './status';
 
@@ -35,7 +35,25 @@ stamina.change{delta,reason}, status.add{effect}, status.remove{effect},
 feature.grant{name,description}, fact.add{text,scope,known_by,tags}.
 Предлагай только то, что реально произошло по ходу. Числа — логичные и скромные. Без блока — если состояние не менялось.`;
 
-function stateContext(state: GameState): string {
+/**
+ * Полные карточки NPC в сцене — ДОСЛОВНО (ТЗ §4.6, защита от дрейфа №4).
+ * Скрытые поля героя сюда не попадают; NPC получает только своё ядро + что он знает.
+ */
+function sceneNpcCards(state: GameState): string {
+	const cards = state.session.npcs_in_scene
+		.map((id) => buildNpcContext(state, id))
+		.filter((c): c is NonNullable<typeof c> => c !== null)
+		.map((c) => {
+			const known = c.known_facts.length ? `\n  знает: ${c.known_facts.join('; ')}` : '';
+			const recog = c.recognizes_hero_secret ? '' : '\n  (тайн героя НЕ знает — не ссылайся на них)';
+			return `• ${c.core.name} — ${c.core.race}, ${c.core.age}, ${c.core.role} (${c.core.estate}).
+  характер: ${c.core.character}; речь: ${c.core.speech_register}; мотивация: ${c.core.motivation}.
+  настроение: ${c.living.mood}; внешность: ${c.core.appearance}.${known}${recog}`;
+		});
+	return cards.length ? `NPC В СЦЕНЕ (веди их строго по карточкам, без отсебятины):\n${cards.join('\n')}` : '';
+}
+
+function stateContext(state: GameState, retrieved: string[]): string {
 	const c = state.character.core;
 	const s = state.session;
 	const status = statusFields(state)
@@ -44,6 +62,7 @@ function stateContext(state: GameState): string {
 	const inv = state.inventory.items
 		.map((i) => `${i.name}${i.qty > 1 ? `×${i.qty}` : ''} [${i.id}]`)
 		.join(', ');
+	const rag = retrieved.length ? `Релевантное из памяти мира:\n${retrieved.map((r) => `- ${r}`).join('\n')}` : '';
 	return [
 		`СОСТОЯНИЕ (источник истины, не выдумывай сверх него):`,
 		`Персонаж: ${c.name}, ${c.race}, ${c.age}, ${c.directions.join('/')}.`,
@@ -52,7 +71,9 @@ function stateContext(state: GameState): string {
 		c.features.length ? `Особенности: ${c.features.join(', ')}.` : '',
 		`Инвентарь: ${inv || 'пусто'}.`,
 		`Сцена: День ${s.day}, ${s.time_of_day}, ${s.season}. ${s.weather ?? ''}`,
-		`Момент: ${s.current_moment}`
+		`Момент: ${s.current_moment}`,
+		sceneNpcCards(state),
+		rag
 	]
 		.filter(Boolean)
 		.join('\n');
@@ -61,10 +82,11 @@ function stateContext(state: GameState): string {
 export function buildNarratorMessages(
 	state: GameState,
 	entries: ChronicleEntry[],
-	playerInput: string
+	playerInput: string,
+	retrieved: string[] = []
 ): ChatMessage[] {
 	const messages: ChatMessage[] = [
-		{ role: 'system', content: `${PHILOSOPHY}\n\n${OPS_PROTOCOL}\n\n${stateContext(state)}` }
+		{ role: 'system', content: `${PHILOSOPHY}\n\n${OPS_PROTOCOL}\n\n${stateContext(state, retrieved)}` }
 	];
 
 	const recent = entries.filter((e) => e.speaker !== 'system').slice(-HISTORY_LIMIT);

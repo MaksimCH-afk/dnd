@@ -2,6 +2,7 @@
 	import { settings, saveSettings } from '$lib/settings.svelte';
 	import { keys, setKey, clearKey } from '$lib/keys.svelte';
 	import { checkHealth, verifyKey } from '$lib/llm';
+	import { ragStatus, ensureEmbedder } from '$lib/rag.svelte';
 	import type { HealthResponse } from '@rpg/engine';
 
 	interface Props {
@@ -148,6 +149,29 @@
 		<span class="mono val">{settings.textScale.toFixed(2)}×</span>
 	</label>
 
+	<div class="field">
+		<label class="check">
+			<input type="checkbox" bind:checked={settings.ragEnabled} onchange={commit} />
+			<span>Локальный поиск по памяти (RAG)</span>
+		</label>
+		<small class="hint">
+			Улучшает память мира (баг №2): подтягивает релевантные факты/NPC. Грузит
+			модель-эмбеддер ({settings.embedderModel}) в браузер (~сотни МБ, первый раз долго).
+		</small>
+		{#if settings.ragEnabled}
+			<div class="probe">
+				<button onclick={() => ensureEmbedder(settings.embedderModel)} disabled={ragStatus.loading || ragStatus.ready}>
+					{ragStatus.ready ? 'Модель готова' : ragStatus.loading ? 'Загрузка…' : 'Загрузить модель'}
+				</button>
+				{#if ragStatus.loading && ragStatus.progress != null}
+					<span class="mono">{Math.round(ragStatus.progress)}%</span>
+				{/if}
+				{#if ragStatus.ready}<span class="ok mono">✓</span>{/if}
+				{#if ragStatus.error}<span class="err mono">✕ {ragStatus.error}</span>{/if}
+			</div>
+		{/if}
+	</div>
+
 	<p class="note">
 		Прокси stateless: хранит и проксирует только LLM-вызовы, без игрового состояния.
 		Канон игры — в git-репозитории (синхронизация — Фаза 1).
@@ -281,6 +305,15 @@
 		font-size: 0.75em;
 		color: var(--text-dim);
 		line-height: 1.4;
+	}
+	.check {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		cursor: pointer;
+	}
+	.check span {
+		font-size: 0.9em;
 	}
 	.models {
 		list-style: none;
