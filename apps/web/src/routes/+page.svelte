@@ -4,524 +4,151 @@
 	import Composer from '$lib/components/Composer.svelte';
 	import StatusThread from '$lib/components/StatusThread.svelte';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
-	import RulesPanel from '$lib/components/RulesPanel.svelte';
-	import Ledger from '$lib/components/Ledger.svelte';
-	import CreationWizard from '$lib/components/CreationWizard.svelte';
-	import { chronicle, addEntry, clearChronicle } from '$lib/chronicle.svelte';
-	import { settings } from '$lib/settings.svelte';
-	import { game, loadGame, createCampaign, commitState, applyTurn, checkSeedsNow, directorPropose, importBundle, resolveCombat, campaigns } from '$lib/game.svelte';
 	import CampaignsPanel from '$lib/components/CampaignsPanel.svelte';
+	import CreationWizard from '$lib/components/CreationWizard.svelte';
 	import OnboardingWizard from '$lib/components/OnboardingWizard.svelte';
-	import { isDarkScene } from '$lib/darkscene';
-	import { buildSaveBundle } from '$lib/reports';
-	import { commitAndPush, pull, readCanon } from '$lib/gitsync';
-	import { validateLeak } from '$lib/validator';
-	import { composeHook } from '$lib/director-llm';
-	import { beginTurn, logEvent, flushLogs, eventsOfTurn, currentTurn } from '$lib/logbus.svelte';
-	import { activeModules } from '@rpg/engine';
-	import type { GameState } from '@rpg/engine';
-	import { streamLlm } from '$lib/llm';
-	import { buildNarratorMessages } from '$lib/prompt';
-	import { extractOps } from '$lib/ops-extract';
+	import Ledger from '$lib/components/Ledger.svelte';
+	import { settings } from '$lib/settings.svelte';
+	import { session, sendTurn, createCampaign, openCampaign, saveGame, checkConnection } from '$lib/session.svelte';
 	import { threadModel, statusFields } from '$lib/status';
-	import { buildGoReport, buildSaveReport } from '$lib/reports';
-	import { retrieve, indexItem } from '$lib/rag.svelte';
+	import type { CreationChoices } from '@rpg/engine';
 
-	let busy = $state(false);
 	let showSettings = $state(false);
-	let showRules = $state(false);
-	let showCreation = $state(false);
 	let showCampaigns = $state(false);
+	let showCreation = $state(false);
 	let showOnboarding = $state(false);
 	let ledgerOpen = $state(true);
-	let highlight = $state<Set<string>>(new Set());
-	// Режиссёр вызывается сам между арками: счётчик ходов с последней арки.
-	let turnsSinceArc = $state(0);
-	let directorBusy = $state(false);
-	const DIRECTOR_INTERVAL = 6;
 
-	const thread = $derived(game.state ? threadModel(game.state) : { intensity: 0.2, tone: 'accent' as const, pulse: false, label: '' });
-	const topStatus = $derived(game.state ? statusFields(game.state) : []);
+	const thread = $derived(session.state ? threadModel(session.state) : { intensity: 0.2, tone: 'accent' as const, pulse: false, label: '' });
+	const topStatus = $derived(session.state ? statusFields(session.state) : []);
 
 	onMount(() => {
 		void (async () => {
-			await loadGame();
-			if (!settings.onboarded && campaigns.campaigns.length === 0) showOnboarding = true;
+			await checkConnection();
+			if (!settings.onboarded) showOnboarding = true;
 		})();
 	});
 
-	async function onCreated(state: GameState) {
-		showCreation = false;
-		await createCampaign(state.character.core.name, state);
-		clearChronicle();
-		const c = state.character.core;
-		const mods = Object.keys(state.character.modules).join(', ') || 'без модулей';
-		addEntry('system', `Создан персонаж: ${c.name}, ${c.race}, ${c.directions.join('/')} · модули: ${mods}.`);
-		addEntry('master', state.session.current_moment + '\n\nЧто ты делаешь?');
+	function addSystem(text: string) {
+		session.entries.push({ id: `sys${Date.now()}-${Math.round(Math.random() * 1e6)}`, speaker: 'system', text });
 	}
 
 	async function handleSend(text: string) {
-		if (text.startsWith('/save')) return doSave();
-		if (text.startsWith('/ask')) return doAsk(text.replace(/^\/ask\s*/, ''));
-		if (text.startsWith('/go')) return doGo();
-
-		const playerText = text.replace(/^\/go\s*/, '').trim();
-		if (!game.state) {
-			addEntry('system', 'Сначала начните игру: кнопка «Новая игра» в гроссбухе.');
+		if (text.startsWith('/save')) {
+			addSystem('⊙ ' + (await saveGame()));
 			return;
 		}
-		addEntry('player', playerText);
-
-		// --- Лог хода (раздел 22): сквозная корреляция turn_id ---
-		beginTurn();
-		logEvent('input', {
-			text: playerText,
-			day: game.state.session.day,
-			time: game.state.session.time_of_day,
-			location: game.state.session.location_id,
-			modules: activeModules(game.state)
-		});
-
-		// Боевой обмен (если идёт бой): движок резолвит исход ДО прозы (R2).
-		let outcomes: string[] = [];
-		const combat = await resolveCombat(playerText);
-		if (combat) {
-			outcomes = combat.cues;
-			if (combat.heroDown) outcomes.push('Герой падает без сил — край гибели.');
-			else if (combat.victory) outcomes.push('Враги повержены или бежали — бой окончен.');
-		}
-
-		// RAG-ретривал (если включён): top-k релевантного из памяти мира (№2).
-		let retrieved: string[] = [];
-		if (settings.ragEnabled) {
-			try {
-				const r = await retrieve(`${playerText} ${game.state.session.current_moment}`);
-				retrieved = r.map((x) => x.text);
-			} catch {
-				/* эмбеддер недоступен — продолжаем без RAG */
-			}
-		}
-
-		const factsBefore = game.state.facts.length;
-		const npcBefore = game.state.npc.length;
-		const messages = buildNarratorMessages(game.state, chronicle.entries, playerText, retrieved, outcomes);
-		const master = addEntry('master', '', true);
-		// Тёмная сцена → упреждающий фоллбэк-профиль (не цензор).
-		const preferFallback = isDarkScene(playerText, game.state.session.current_moment);
-		busy = true;
-		try {
-			await streamLlm(settings.proxyUrl, 'narrator', messages, {
-				onDelta: (chunk) => (master.text += chunk),
-				onDone: (e) => {
-					master.model = e.meta.model;
-					master.usedFallback = e.meta.usedFallback;
-				},
-				onError: (e) => {
-					master.text = master.text || `⚠ ${describeError(e.code)}: ${e.message}`;
-				}
-			}, { preferFallback });
-			// Извлечь предложенные операции, применить через движок.
-			const { clean, ops } = extractOps(master.text);
-			master.text = clean;
-			logEvent('proposed_ops', { count: ops.length, ops }, ops.length ? 'info' : 'debug');
-			if (!master.text.trim()) {
-				master.text = ops.length
-					? '(Мастер внёс изменения, но не описал сцену. Продолжи — опиши, что делаешь.)'
-					: '⚠ Мастер не прислал ответ — на бесплатной модели так бывает. Попробуй отправить ход ещё раз; при повторе смени модель Ведущего в настройках.';
-			}
-			if (ops.length && game.state) {
-				const capBefore = game.state.inventory.capital_mp;
-				const hpBefore = game.state.character.core.hp.cur;
-				const itemsBefore = game.state.inventory.items.length;
-				const before = new Map(game.state.inventory.items.map((i) => [i.id, i.qty]));
-				const res = await applyTurn(ops);
-				master.streaming = false;
-				if (res) {
-					highlight = changedItems(before);
-					logEvent('applied_ops', { applied: res.applied.map((o) => o.op), rejected: res.rejected });
-					logEvent('state_diff', {
-						capital: [capBefore, game.state.inventory.capital_mp],
-						hp: [hpBefore, game.state.character.core.hp.cur],
-						items: [itemsBefore, game.state.inventory.items.length]
-					});
-					if (res.rejected.length) {
-						addEntry('system', `Движок отклонил ${res.rejected.length} оп.: ${res.rejected.map((r) => r.reason).join('; ')}`);
-					}
-					// Индексируем новые факты/NPC в RAG (если включён).
-					if (settings.ragEnabled && game.state) {
-						for (const f of game.state.facts.slice(factsBefore)) {
-							void indexItem({ id: f.id, kind: 'fact', text: f.text, day: f.created_day });
-						}
-						for (const n of game.state.npc.slice(npcBefore)) {
-							void indexItem({ id: n.id, kind: 'npc', text: `${n.core.name}: ${n.core.role}, ${n.core.character}`, day: game.state.session.day });
-						}
-					}
-				}
-			}
-			// LLM-валидатор утечек знания (опц., +1 вызов): семантическая страховка №3.
-			if (settings.validatorEnabled && game.state && master.text) {
-				const verdict = await validateLeak(settings.proxyUrl, master.text, game.state);
-				logEvent('validation', verdict, verdict.leak ? 'warn' : 'debug');
-				if (verdict.leak) {
-					addEntry('system', `⚠ Валидатор знания: возможная утечка — ${verdict.detail || 'NPC сослался на неизвестное'}.`);
-				}
-			}
-		} catch (e) {
-			logEvent('error', { message: (e as Error).message, where: 'turn' }, 'error');
-			if (!master.text) master.text = `⚠ Мир замер: нет связи с моделью. Ход не отправлен. (${(e as Error).message})`;
-		} finally {
-			master.streaming = false;
-			busy = false;
-		}
-
-		// Проверка отложенных последствий (seeds) после хода (№1).
-		const fired = await checkSeedsNow();
-		if (fired.length) logEvent('worldsim', { fired });
-		for (const f of fired) addEntry('system', `⟳ Мир помнит: ${f}`);
-		await flushLogs();
-
-		// Режиссёр сам подкидывает поворот между арками (по накоплению ходов, не кнопкой).
-		turnsSinceArc += 1;
-		if (!game.state?.combat && turnsSinceArc >= DIRECTOR_INTERVAL) {
-			void runDirector();
-		}
-	}
-
-	/** Автоматический Режиссёр: вне горячего пути, мягкий хук. */
-	async function runDirector() {
-		if (!game.state || directorBusy) return;
-		directorBusy = true;
-		turnsSinceArc = 0;
-		try {
-			const arc = await directorPropose();
-			if (!arc) return;
-			const hook = await composeHook(settings.proxyUrl, arc, game.state);
-			addEntry('system', `🎬 Новый поворот на горизонте: ${hook}`);
-		} finally {
-			directorBusy = false;
-		}
-	}
-
-	function changedItems(before: Map<string, number>): Set<string> {
-		const set = new Set<string>();
-		if (!game.state) return set;
-		for (const it of game.state.inventory.items) {
-			if (before.get(it.id) !== it.qty) set.add(it.id);
-		}
-		return set;
-	}
-
-	async function doSave() {
-		if (!game.state) {
-			addEntry('system', 'Нечего сохранять — игра не начата.');
-			return;
-		}
-		const report = buildSaveReport(game.state, game.lastApply);
-		if (settings.gitEnabled && settings.gitRepoUrl) {
-			addEntry('system', '⊙ Сохранение в git…');
-			const r = await commitAndPush(game.state, `save: День ${game.state.session.day}`);
-			logEvent('sync', { ok: r.ok, message: r.message, commit: r.commit, schema_version: game.state.schema_version }, r.ok ? 'info' : 'warn');
-			addEntry('system', r.ok ? `${report}\n⊙ git: ${r.message}${r.commit ? ` (${r.commit})` : ''}` : `⚠ git: ${r.message}`);
-		} else {
-			const bundle = buildSaveBundle(game.state);
-			downloadFile(`save-day${game.state.session.day}.json`, bundle['canon.json']!);
-			addEntry('system', `${report}\nСейв выгружен файлом.`);
-		}
-	}
-
-	function downloadFile(name: string, content: string) {
-		const blob = new Blob([content], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = name;
-		a.click();
-		URL.revokeObjectURL(url);
-	}
-
-	async function loadSaveFile(e: Event) {
-		const input = e.target as HTMLInputElement;
-		const file = input.files?.[0];
-		if (!file) return;
-		const err = await importBundle(await file.text());
-		input.value = '';
-		if (err) {
-			addEntry('system', `Не удалось загрузить сейв: ${err}`);
-			return;
-		}
-		clearChronicle();
-		addEntry('system', `Сейв загружен. День ${game.state!.session.day}.`);
-		addEntry('master', game.state!.session.current_moment);
-	}
-
-	async function doGo() {
-		// С git: подтянуть канон с удалённого (продолжить с любого устройства).
-		if (settings.gitEnabled && settings.gitRepoUrl) {
-			addEntry('system', '⊙ Загрузка из git…');
-			const pr = await pull();
-			if (!pr.ok) addEntry('system', `⚠ git pull: ${pr.message}`);
-			const canon = await readCanon();
-			if (canon) {
-				commitState(canon);
-				clearChronicle();
-				addEntry('system', `⊙ Канон загружен из git. ${buildGoReport(canon)}`);
-				addEntry('master', canon.session.current_moment);
+		if (text.startsWith('/go')) {
+			if (!session.campaignId) {
+				addSystem('Игра не начата. Откройте кампанию (📚) или начните новую.');
 				return;
 			}
-			addEntry('system', '⚠ В git нет канона — начните новую игру или сохраните текущую.');
-		}
-		if (!game.state) {
-			addEntry('system', 'Игра не начата. Нажмите «Новая игра» в гроссбухе.');
+			await openCampaign(session.campaignId); // подтянуть актуальное состояние с сервера
+			addSystem('⊙ Состояние подтянуто с сервера.');
 			return;
 		}
-		addEntry('system', buildGoReport(game.state));
-	}
-
-	function doAsk(question: string) {
-		if (!game.state) {
-			addEntry('system', '/ask: игра не начата.');
+		if (text.startsWith('/ask')) {
+			addSystem('/ask: мета-режим читает серверный лог хода (раздел 22). Подключение окна — следующим шагом.');
 			return;
 		}
-		const c = game.state.character.core;
-		const lines = [`/ask${question ? ` — ${question}` : ''} (под капотом):`];
-		lines.push(`Скрытые атрибуты: ${Object.entries(c.attrs).map(([k, v]) => `${k} ${v}`).join(', ')}`);
-		// Курируемый срез NDJSON-лога текущего хода (раздел 22, §22.7).
-		const turnEvents = eventsOfTurn(currentTurn());
-		const mech = turnEvents.filter((e) => e.type === 'mechanics');
-		const llm = turnEvents.filter((e) => e.type === 'llm_call');
-		if (mech.length) {
-			lines.push('Механика хода:');
-			for (const e of mech) lines.push(`  • ${JSON.stringify(e.payload)}`);
+		if (!session.campaignId) {
+			addSystem('Сначала начните игру: «Новая игра» в гроссбухе или 📚.');
+			return;
 		}
-		if (llm.length) {
-			lines.push('Вызовы модели:');
-			for (const e of llm) {
-				const p = e.payload as { role?: string; model?: string; usedFallback?: boolean; latency_ms?: number };
-				lines.push(`  • ${p.role}: ${p.model}${p.usedFallback ? ' (фоллбэк)' : ''} ~${p.latency_ms}мс`);
-			}
-		}
-		if (game.lastApply) {
-			lines.push('Дельты движка:');
-			lines.push(...(game.lastApply.log.length ? game.lastApply.log.map((l) => `  ${l}`) : ['  (операций не было)']));
-		}
-		addEntry('system', lines.join('\n'));
+		await sendTurn(text);
 	}
 
-	function describeError(code?: string): string {
-		switch (code) {
-			case 'no_key':
-				return 'нет ключа OpenRouter (добавьте в настройках)';
-			case 'upstream':
-				return 'модель недоступна (исчерпаны ретраи и фоллбэк)';
-			default:
-				return 'ошибка генерации';
+	async function onCreated(choices: CreationChoices) {
+		showCreation = false;
+		try {
+			await createCampaign(choices);
+		} catch (e) {
+			addSystem(`⚠ Не удалось создать кампанию: ${(e as Error).message}`);
 		}
 	}
 </script>
 
-<svelte:head>
-	<title>Текстовое НРИ</title>
-</svelte:head>
+<svelte:head><title>Текстовое НРИ</title></svelte:head>
 
 <div class="app">
 	<header class="topbar">
 		<button class="icon" onclick={() => (ledgerOpen = !ledgerOpen)} aria-label="Гроссбух">☰</button>
 		<div class="scene mono">
+			<span class="sync" class:on={session.connected} title={session.connected ? 'Сервер на связи' : 'Нет связи с сервером'}>⊙</span>
 			{#if topStatus.length}
-				{#each topStatus.slice(0, 4) as f (f.label)}
-					<span class="chip">{f.label} {f.value}</span>
-				{/each}
+				{#each topStatus.slice(0, 4) as f (f.label)}<span class="chip">{f.label} {f.value}</span>{/each}
 			{:else}
-				<span class="sync">⊙</span> Пролог
+				Пролог
 			{/if}
 		</div>
 		<button class="icon" onclick={() => (showCampaigns = true)} aria-label="Кампании" title="Кампании">📚</button>
-		<button class="icon" onclick={() => (showRules = true)} aria-label="Файлы правил" title="Файлы правил">📖</button>
 		<button class="icon" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>
 	</header>
 
 	<main class="layout" class:ledger-open={ledgerOpen}>
 		<section class="chronicle-col">
-			<Chronicle entries={chronicle.entries} />
-			<Composer {busy} onsend={handleSend} />
+			<Chronicle entries={session.entries} />
+			<Composer busy={session.busy} onsend={handleSend} />
 		</section>
 
-		<StatusThread intensity={busy ? Math.min(1, thread.intensity + 0.2) : thread.intensity} tone={thread.tone} pulse={thread.pulse || busy} />
+		<StatusThread intensity={session.busy ? Math.min(1, thread.intensity + 0.2) : thread.intensity} tone={thread.tone} pulse={thread.pulse || session.busy} />
 
 		<aside class="ledger" hidden={!ledgerOpen}>
-			{#if game.state}
-				<Ledger state={game.state} {highlight} />
+			{#if session.state}
+				<Ledger state={session.state} />
 				{#if thread.label}
-					<div class="thread-legend mono">
-						<span>нить состояния</span><small>{thread.label}</small>
-					</div>
+					<div class="thread-legend mono"><span>нить состояния</span><small>{thread.label}</small></div>
 				{/if}
 			{:else}
 				<div class="empty-ledger">
 					<h2 class="mono">Гроссбух</h2>
 					<p>Игра не начата.</p>
 					<button class="newgame" onclick={() => (showCreation = true)}>Новая игра</button>
-					<label class="loadsave">
-						Загрузить сейв
-						<input type="file" accept=".json,application/json" onchange={loadSaveFile} hidden />
-					</label>
-					<small>Создание персонажа: раса, направление, скрытая проверка таланта.</small>
+					<button class="link" onclick={() => (showCampaigns = true)}>Открыть кампанию</button>
 				</div>
 			{/if}
 		</aside>
 	</main>
 </div>
 
-{#if showSettings}
-	<SettingsPanel onclose={() => (showSettings = false)} />
-{/if}
-{#if showRules}
-	<RulesPanel onclose={() => (showRules = false)} />
-{/if}
-{#if showCreation}
-	<CreationWizard oncreated={onCreated} oncancel={() => (showCreation = false)} />
-{/if}
-{#if showOnboarding}
-	<OnboardingWizard
-		onnew={() => { showOnboarding = false; showCreation = true; }}
-		onload={() => { showOnboarding = false; addEntry('system', 'Загрузить сейв: кнопка «Загрузить сейв» в гроссбухе, или /go при включённой git-синхронизации.'); }}
-		onclose={() => (showOnboarding = false)}
-	/>
-{/if}
+{#if showSettings}<SettingsPanel onclose={() => (showSettings = false)} />{/if}
 {#if showCampaigns}
 	<CampaignsPanel
 		onclose={() => (showCampaigns = false)}
 		onnew={() => { showCampaigns = false; showCreation = true; }}
-		onswitched={() => { showCampaigns = false; clearChronicle(); if (game.state) addEntry('master', game.state.session.current_moment); }}
+		onpicked={() => (showCampaigns = false)}
+	/>
+{/if}
+{#if showCreation}<CreationWizard oncreated={onCreated} oncancel={() => (showCreation = false)} />{/if}
+{#if showOnboarding}
+	<OnboardingWizard
+		onnew={() => { showOnboarding = false; showCreation = true; }}
+		onload={() => { showOnboarding = false; showCampaigns = true; }}
+		onclose={() => (showOnboarding = false)}
 	/>
 {/if}
 
 <style>
-	.app {
-		height: 100dvh;
-		display: flex;
-		flex-direction: column;
-	}
-	.topbar {
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		padding: 0.5rem var(--gutter);
-		border-bottom: 1px solid var(--border);
-		background: var(--surface);
-		flex-shrink: 0;
-	}
-	.topbar .scene {
-		flex: 1;
-		display: flex;
-		gap: 0.4rem;
-		justify-content: center;
-		flex-wrap: wrap;
-		color: var(--text-dim);
-		font-size: 0.78em;
-		overflow: hidden;
-	}
-	.chip {
-		white-space: nowrap;
-		padding: 0.1rem 0.5rem;
-		background: var(--surface-raised);
-		border: 1px solid var(--border);
-		border-radius: 999px;
-	}
-	.sync {
-		color: var(--accent);
-		opacity: 0.6;
-	}
-	.icon {
-		background: none;
-		border: none;
-		color: var(--text-dim);
-		font-size: 1.1rem;
-		padding: 0.2rem 0.4rem;
-	}
-	.icon:hover {
-		color: var(--accent);
-	}
-
-	.layout {
-		flex: 1;
-		display: grid;
-		grid-template-columns: 1fr auto;
-		min-height: 0;
-	}
-	.layout.ledger-open {
-		grid-template-columns: 1fr auto minmax(240px, 320px);
-	}
-	.chronicle-col {
-		display: flex;
-		flex-direction: column;
-		min-height: 0;
-		min-width: 0;
-	}
-	.ledger {
-		border-left: 1px solid var(--border);
-		background: var(--surface);
-		padding: 1.2rem;
-		overflow-y: auto;
-	}
-	.empty-ledger {
-		color: var(--text-dim);
-		text-align: center;
-		margin-top: 2rem;
-	}
-	.empty-ledger h2 {
-		font-size: 0.8rem;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-	}
-	.newgame {
-		margin: 1rem 0 0.6rem;
-		background: var(--accent);
-		color: var(--ink-900);
-		border: none;
-		border-radius: var(--radius);
-		padding: 0.6rem 1.2rem;
-		font-size: 0.95em;
-	}
-	.loadsave {
-		display: inline-block;
-		margin-bottom: 0.8rem;
-		font-size: 0.85em;
-		color: var(--link);
-		cursor: pointer;
-		text-decoration: underline;
-	}
-	.empty-ledger small {
-		display: block;
-		font-size: 0.75em;
-		opacity: 0.7;
-	}
-	.thread-legend {
-		margin-top: 1.5rem;
-		padding-top: 1rem;
-		border-top: 1px solid var(--border);
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-		font-size: 0.72em;
-		color: var(--accent);
-	}
-	.thread-legend small {
-		color: var(--text-dim);
-	}
-
+	.app { height: 100dvh; display: flex; flex-direction: column; }
+	.topbar { display: flex; align-items: center; gap: .6rem; padding: .5rem var(--gutter); border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+	.topbar .scene { flex: 1; display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; color: var(--text-dim); font-size: .78em; overflow: hidden; align-items: center; }
+	.chip { white-space: nowrap; padding: .1rem .5rem; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 999px; }
+	.sync { color: var(--danger); opacity: .7; }
+	.sync.on { color: var(--accent); }
+	.icon { background: none; border: none; color: var(--text-dim); font-size: 1.1rem; padding: .2rem .4rem; }
+	.icon:hover { color: var(--accent); }
+	.layout { flex: 1; display: grid; grid-template-columns: 1fr auto; min-height: 0; }
+	.layout.ledger-open { grid-template-columns: 1fr auto minmax(240px, 320px); }
+	.chronicle-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+	.ledger { border-left: 1px solid var(--border); background: var(--surface); padding: 1.2rem; overflow-y: auto; }
+	.empty-ledger { color: var(--text-dim); text-align: center; margin-top: 2rem; }
+	.empty-ledger h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
+	.newgame { display: block; width: 100%; margin: 1rem 0 .6rem; background: var(--accent); color: var(--ink-900); border: none; border-radius: var(--radius); padding: .6rem 1.2rem; font-size: .95em; }
+	.link { background: none; border: none; color: var(--link); text-decoration: underline; font-size: .85em; cursor: pointer; }
+	.thread-legend { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: .3rem; font-size: .72em; color: var(--accent); }
+	.thread-legend small { color: var(--text-dim); }
 	@media (max-width: 760px) {
-		.layout.ledger-open {
-			grid-template-columns: 1fr auto;
-		}
-		.ledger {
-			position: fixed;
-			top: 0;
-			right: 0;
-			bottom: 0;
-			width: min(85vw, 320px);
-			z-index: 5;
-			box-shadow: -8px 0 30px rgba(0, 0, 0, 0.4);
-		}
+		.layout.ledger-open { grid-template-columns: 1fr auto; }
+		.ledger { position: fixed; top: 0; right: 0; bottom: 0; width: min(85vw, 320px); z-index: 5; box-shadow: -8px 0 30px rgba(0,0,0,.4); }
 	}
 </style>

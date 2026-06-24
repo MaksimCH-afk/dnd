@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ChronicleEntry } from '$lib/chronicle.svelte';
+	import type { ChronicleEntry } from '$lib/session.svelte';
 
 	interface Props {
 		entries: ChronicleEntry[];
@@ -45,7 +45,7 @@
 				</div>
 				{#if entry.model && !entry.streaming}
 					<div class="meta mono">
-						{entry.model}{entry.usedFallback ? ' · фоллбэк' : ''}
+						{entry.model}
 					</div>
 				{/if}
 			</article>

@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "dev:web": "pnpm --filter @rpg/web dev",
-    "dev:proxy": "pnpm --filter @rpg/proxy dev",
+    "dev:server": "pnpm --filter @rpg/server dev",
     "build": "pnpm -r build",
     "check": "pnpm -r check",
     "test": "pnpm -r test",

@@ -1,16 +1,8 @@
 <script lang="ts">
-	import {
-		createCharacter,
-		RACES,
-		AGE_BANDS,
-		DIRECTIONS,
-		DARK_PATH_DIRECTIONS,
-		type CreationChoices,
-		type GameState
-	} from '@rpg/engine';
+	import { RACES, AGE_BANDS, DIRECTIONS, DARK_PATH_DIRECTIONS, type CreationChoices } from '@rpg/engine';
 
 	interface Props {
-		oncreated: (state: GameState) => void;
+		oncreated: (choices: CreationChoices) => void;
 		oncancel: () => void;
 	}
 	let { oncreated, oncancel }: Props = $props();
@@ -33,7 +25,7 @@
 			direction,
 			...(canDark && darkPath ? { darkPath: true } : {})
 		};
-		oncreated(createCharacter(choices));
+		oncreated(choices);
 	}
 </script>
 
