@@ -26,6 +26,7 @@ import {
 	type ProposedArc
 } from '@rpg/engine';
 import { IdbStore } from './idb';
+import { logEvent } from './logbus.svelte';
 
 const store = browser ? new IdbStore<GameState>('rpg-game', 'state') : null;
 
@@ -236,6 +237,8 @@ export async function resolveCombat(playerText: string): Promise<CombatOutcome |
 	const { style, flee } = parseStyle(playerText);
 	const rng = makeRng(seedFromString(`combat|${game.state.session.day}|${game.state.combat.round}|${playerText.length}`));
 	const r = resolveExchange($state.snapshot(game.state), game.state.combat, { style, flee }, rng);
+	// mechanics (раздел 22): исход обмена (скрытая кухня боя для /ask).
+	logEvent('mechanics', { kind: 'combat_exchange', round: game.state.combat.round, style, flee, heroHpDelta: r.heroHpDelta, ended: r.ended, victory: r.victory });
 
 	// Применяем урон/выносливость + практику боя через движок (журналируется, клампится).
 	const ops: Op[] = [{ op: 'progress.tick', activity: 'combat' }];

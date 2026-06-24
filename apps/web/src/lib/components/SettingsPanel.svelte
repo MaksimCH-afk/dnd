@@ -4,6 +4,8 @@
 	import { checkHealth, verifyKey } from '$lib/llm';
 	import { ragStatus, ensureEmbedder } from '$lib/rag.svelte';
 	import { ensureRepo } from '$lib/gitsync';
+	import { logState, bugBundle, clearLogs } from '$lib/logbus.svelte';
+	import { game } from '$lib/game.svelte';
 	import type { HealthResponse } from '@rpg/engine';
 
 	interface Props {
@@ -71,6 +73,17 @@
 		setKey(gitToken, 'git');
 		gitStatus = { ok: true, text: 'токен сохранён' };
 	}
+	function exportBugBundle() {
+		const content = bugBundle(game.state ? $state.snapshot(game.state) : null);
+		const blob = new Blob([content], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = `bug-bundle-${Date.now()}.json`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
 	async function testGit() {
 		gitBusy = true;
 		gitStatus = null;
@@ -233,6 +246,26 @@
 			</small>
 		{/if}
 	</div>
+
+	<div class="field row">
+		<span>Логи (раздел 22)</span>
+		<select bind:value={settings.logLevel} onchange={commit}>
+			<option value="info">info</option>
+			<option value="debug">debug</option>
+			<option value="trace">trace</option>
+			<option value="warn">warn</option>
+			<option value="error">error</option>
+		</select>
+	</div>
+	<div class="keyactions">
+		<button onclick={exportBugBundle}>Экспорт bug-bundle</button>
+		<button onclick={clearLogs}>Очистить логи</button>
+		<span class="mono val">{logState.count} соб.</span>
+	</div>
+	<small class="hint">
+		NDJSON-лог хода (ввод/контекст/механика/вызовы моделей/дельты/синк) пишется
+		движком локально. debug/trace добавляют полные промпты — тяжелее. Логи вне git.
+	</small>
 
 	<p class="note">
 		Прокси stateless: хранит и проксирует только LLM-вызовы, без игрового состояния.

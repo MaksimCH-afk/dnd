@@ -12,6 +12,7 @@ import type {
 	VerifyKeyResponse
 } from '@rpg/engine';
 import { getKey } from './keys.svelte';
+import { logEvent } from './logbus.svelte';
 
 export interface StreamHandlers {
 	onDelta?: (text: string) => void;
@@ -80,6 +81,8 @@ export async function streamLlm(
 	const decoder = new TextDecoder();
 	let buffer = '';
 	let prose = '';
+	const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
+	const latency = () => Math.round((typeof performance !== 'undefined' ? performance.now() : 0) - t0);
 
 	const dispatch = (event: LlmStreamEvent) => {
 		switch (event.type) {
@@ -91,9 +94,21 @@ export async function streamLlm(
 				handlers.onToolCall?.(event.raw);
 				break;
 			case 'done':
+				// llm_call (раздел 22): какая модель реально ответила, фоллбэк, токены, латентность.
+				logEvent('llm_call', {
+					role,
+					model: event.meta.model,
+					usedFallback: event.meta.usedFallback,
+					attempts: event.meta.attempts,
+					finishReason: event.meta.finishReason,
+					usage: event.meta.usage,
+					latency_ms: latency(),
+					prompt_chars: messages.reduce((n, m) => n + m.content.length, 0)
+				});
 				handlers.onDone?.(event);
 				break;
 			case 'error':
+				logEvent('llm_call', { role, error: event.message, code: event.code, latency_ms: latency() }, 'warn');
 				handlers.onError?.(event);
 				break;
 		}

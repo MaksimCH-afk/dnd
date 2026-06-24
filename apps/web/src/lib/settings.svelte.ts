@@ -21,6 +21,8 @@ export interface Settings {
 	validatorEnabled: boolean;
 	/** Пройден ли первый запуск (онбординг). */
 	onboarded: boolean;
+	/** Уровень детализации логов (раздел 22): info по умолчанию. */
+	logLevel: 'trace' | 'debug' | 'info' | 'warn' | 'error';
 }
 
 const STORAGE_KEY = 'rpg.settings.v0';
@@ -36,7 +38,8 @@ const DEFAULTS: Settings = {
 	gitRepoUrl: '',
 	gitBranch: 'main',
 	validatorEnabled: false,
-	onboarded: false
+	onboarded: false,
+	logLevel: 'info'
 };
 
 function load(): Settings {

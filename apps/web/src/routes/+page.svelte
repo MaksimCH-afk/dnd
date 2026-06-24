@@ -17,6 +17,8 @@
 	import { commitAndPush, pull, readCanon } from '$lib/gitsync';
 	import { validateLeak } from '$lib/validator';
 	import { composeHook } from '$lib/director-llm';
+	import { beginTurn, logEvent, flushLogs, eventsOfTurn, currentTurn } from '$lib/logbus.svelte';
+	import { activeModules } from '@rpg/engine';
 	import type { GameState } from '@rpg/engine';
 	import { streamLlm } from '$lib/llm';
 	import { buildNarratorMessages } from '$lib/prompt';
@@ -66,6 +68,16 @@
 		}
 		addEntry('player', playerText);
 
+		// --- Лог хода (раздел 22): сквозная корреляция turn_id ---
+		beginTurn();
+		logEvent('input', {
+			text: playerText,
+			day: game.state.session.day,
+			time: game.state.session.time_of_day,
+			location: game.state.session.location_id,
+			modules: activeModules(game.state)
+		});
+
 		// Боевой обмен (если идёт бой): движок резолвит исход ДО прозы (R2).
 		let outcomes: string[] = [];
 		const combat = await resolveCombat(playerText);
@@ -107,12 +119,22 @@
 			// Извлечь предложенные операции, применить через движок.
 			const { clean, ops } = extractOps(master.text);
 			master.text = clean;
+			logEvent('proposed_ops', { count: ops.length, ops }, ops.length ? 'info' : 'debug');
 			if (ops.length && game.state) {
+				const capBefore = game.state.inventory.capital_mp;
+				const hpBefore = game.state.character.core.hp.cur;
+				const itemsBefore = game.state.inventory.items.length;
 				const before = new Map(game.state.inventory.items.map((i) => [i.id, i.qty]));
 				const res = await applyTurn(ops);
 				master.streaming = false;
 				if (res) {
 					highlight = changedItems(before);
+					logEvent('applied_ops', { applied: res.applied.map((o) => o.op), rejected: res.rejected });
+					logEvent('state_diff', {
+						capital: [capBefore, game.state.inventory.capital_mp],
+						hp: [hpBefore, game.state.character.core.hp.cur],
+						items: [itemsBefore, game.state.inventory.items.length]
+					});
 					if (res.rejected.length) {
 						addEntry('system', `Движок отклонил ${res.rejected.length} оп.: ${res.rejected.map((r) => r.reason).join('; ')}`);
 					}
@@ -130,11 +152,13 @@
 			// LLM-валидатор утечек знания (опц., +1 вызов): семантическая страховка №3.
 			if (settings.validatorEnabled && game.state && master.text) {
 				const verdict = await validateLeak(settings.proxyUrl, master.text, game.state);
+				logEvent('validation', verdict, verdict.leak ? 'warn' : 'debug');
 				if (verdict.leak) {
 					addEntry('system', `⚠ Валидатор знания: возможная утечка — ${verdict.detail || 'NPC сослался на неизвестное'}.`);
 				}
 			}
 		} catch (e) {
+			logEvent('error', { message: (e as Error).message, where: 'turn' }, 'error');
 			if (!master.text) master.text = `⚠ Мир замер: нет связи с моделью. Ход не отправлен. (${(e as Error).message})`;
 		} finally {
 			master.streaming = false;
@@ -143,7 +167,9 @@
 
 		// Проверка отложенных последствий (seeds) после хода (№1).
 		const fired = await checkSeedsNow();
+		if (fired.length) logEvent('worldsim', { fired });
 		for (const f of fired) addEntry('system', `⟳ Мир помнит: ${f}`);
+		await flushLogs();
 	}
 
 	async function runDirector() {
@@ -173,6 +199,7 @@
 		if (settings.gitEnabled && settings.gitRepoUrl) {
 			addEntry('system', '⊙ Сохранение в git…');
 			const r = await commitAndPush(game.state, `save: День ${game.state.session.day}`);
+			logEvent('sync', { ok: r.ok, message: r.message, commit: r.commit, schema_version: game.state.schema_version }, r.ok ? 'info' : 'warn');
 			addEntry('system', r.ok ? `${report}\n⊙ git: ${r.message}${r.commit ? ` (${r.commit})` : ''}` : `⚠ git: ${r.message}`);
 		} else {
 			const bundle = buildSaveBundle(game.state);
@@ -237,12 +264,24 @@
 		const c = game.state.character.core;
 		const lines = [`/ask${question ? ` — ${question}` : ''} (под капотом):`];
 		lines.push(`Скрытые атрибуты: ${Object.entries(c.attrs).map(([k, v]) => `${k} ${v}`).join(', ')}`);
+		// Курируемый срез NDJSON-лога текущего хода (раздел 22, §22.7).
+		const turnEvents = eventsOfTurn(currentTurn());
+		const mech = turnEvents.filter((e) => e.type === 'mechanics');
+		const llm = turnEvents.filter((e) => e.type === 'llm_call');
+		if (mech.length) {
+			lines.push('Механика хода:');
+			for (const e of mech) lines.push(`  • ${JSON.stringify(e.payload)}`);
+		}
+		if (llm.length) {
+			lines.push('Вызовы модели:');
+			for (const e of llm) {
+				const p = e.payload as { role?: string; model?: string; usedFallback?: boolean; latency_ms?: number };
+				lines.push(`  • ${p.role}: ${p.model}${p.usedFallback ? ' (фоллбэк)' : ''} ~${p.latency_ms}мс`);
+			}
+		}
 		if (game.lastApply) {
-			lines.push(`Последний ход — лог движка:`);
-			lines.push(...game.lastApply.log.map((l) => `  ${l}`));
-			if (!game.lastApply.log.length) lines.push('  (операций не было)');
-		} else {
-			lines.push('Ходов с операциями ещё не было.');
+			lines.push('Дельты движка:');
+			lines.push(...(game.lastApply.log.length ? game.lastApply.log.map((l) => `  ${l}`) : ['  (операций не было)']));
 		}
 		addEntry('system', lines.join('\n'));
 	}
