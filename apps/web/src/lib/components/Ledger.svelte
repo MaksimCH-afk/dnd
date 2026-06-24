@@ -140,6 +140,33 @@
 		</section>
 	{/if}
 
+	<!-- Контракты -->
+	{#if state.contracts.length}
+		<section>
+			<h4>Контракты</h4>
+			<ul class="contracts">
+				{#each state.contracts as c (c.id)}
+					<li>
+						<span class="ctitle">{c.title}</span>
+						<span class="cstatus mono">{c.status}{c.deadline_day ? ` · День ${c.deadline_day}` : ''}</span>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
+	<!-- Таймеры -->
+	{#if state.timers.length}
+		<section>
+			<h4>Таймеры</h4>
+			<ul class="timers mono">
+				{#each state.timers as t (t.id)}
+					<li>{t.label} — День {t.due_day}</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
 	<!-- Капитал -->
 	<section>
 		<h4>Капитал</h4>
@@ -291,6 +318,27 @@
 	.npc-sub.dim {
 		opacity: 0.7;
 		font-style: italic;
+	}
+	.contracts,
+	.timers {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+	.contracts li {
+		display: flex;
+		flex-direction: column;
+		padding: 0.25rem 0;
+		font-size: 0.85em;
+	}
+	.contracts .cstatus {
+		font-size: 0.72em;
+		color: var(--text-dim);
+	}
+	.timers li {
+		font-size: 0.76em;
+		color: var(--text-dim);
+		padding: 0.1rem 0;
 	}
 	.capital {
 		font-size: 1.05em;

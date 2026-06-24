@@ -32,8 +32,14 @@ const OPS_PROTOCOL = `ПРЕДЛОЖЕНИЕ ИЗМЕНЕНИЙ СОСТОЯНИ
 item.add{item:{name,qty,slot:надето|сумка|схрон,magical?,charges?,notes?}},
 item.remove{id,qty,reason}, item.update{id,fields}, hp.change{delta,reason},
 stamina.change{delta,reason}, status.add{effect}, status.remove{effect},
-feature.grant{name,description}, fact.add{text,scope,known_by,tags}.
-Предлагай только то, что реально произошло по ходу. Числа — логичные и скромные. Без блока — если состояние не менялось.`;
+feature.grant{name,description}, fact.add{text,scope,known_by,tags},
+npc.spawn{seed_card:{id,name,race,role,character,motivation,appearance}},
+npc.relationship{from,to,axis,delta,notes}, reputation.shift{faction,axis,delta,reason},
+contract.offer{fields:{id,title,objectives,reward,deadline_day,faction}},
+contract.update{id,fields}, contract.close{id,status}, timer.add{label,due_day,type},
+power.set{state} (если маг), heat.change{delta,reason} (если intrigue), faith.shift{delta,reason} (если faith).
+scope фактов: public (все знают) | secret (только перечисленные в known_by) | player (только герой).
+ВАЖНО: NPC не может знать тайны героя, если они не в его known_by. Предлагай только реально произошедшее. Без блока — если состояние не менялось.`;
 
 /**
  * Полные карточки NPC в сцене — ДОСЛОВНО (ТЗ §4.6, защита от дрейфа №4).
@@ -51,6 +57,17 @@ function sceneNpcCards(state: GameState): string {
   настроение: ${c.living.mood}; внешность: ${c.core.appearance}.${known}${recog}`;
 		});
 	return cards.length ? `NPC В СЦЕНЕ (веди их строго по карточкам, без отсебятины):\n${cards.join('\n')}` : '';
+}
+
+function activeContracts(state: GameState): string {
+	const open = state.contracts.filter((c) => c.status === 'предложен' || c.status === 'активен');
+	if (!open.length) return '';
+	return `Контракты: ${open.map((c) => `«${c.title}» (${c.status}${c.deadline_day ? `, до Дня ${c.deadline_day}` : ''})`).join('; ')}`;
+}
+
+function activeTimers(state: GameState): string {
+	if (!state.timers.length) return '';
+	return `Таймеры: ${state.timers.map((t) => `${t.label} → День ${t.due_day}`).join('; ')}`;
 }
 
 function stateContext(state: GameState, retrieved: string[]): string {
@@ -72,6 +89,8 @@ function stateContext(state: GameState, retrieved: string[]): string {
 		`Инвентарь: ${inv || 'пусто'}.`,
 		`Сцена: День ${s.day}, ${s.time_of_day}, ${s.season}. ${s.weather ?? ''}`,
 		`Момент: ${s.current_moment}`,
+		activeContracts(state),
+		activeTimers(state),
 		sceneNpcCards(state),
 		rag
 	]

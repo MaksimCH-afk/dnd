@@ -18,3 +18,7 @@ export * from './rng';
 export * from './creation';
 export * from './knowledge';
 export * from './npcgen';
+export * from './combat';
+export * from './economy';
+export * from './time';
+export * from './reputation';

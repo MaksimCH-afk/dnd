@@ -11,7 +11,8 @@
 
 import type { Op, OpName } from './ops';
 import { OP_MODULE_REQUIREMENT } from './ops';
-import type { GameState, InventoryItem, ModuleName, NpcCore } from './state';
+import type { Contract, GameState, InventoryItem, ModuleName, NpcCore } from './state';
+import { tierFromHidden } from './reputation';
 
 export interface ApplyContext {
 	/** Текущий игровой день (для acquired_day/journal). */
@@ -220,12 +221,11 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 
 			case 'reputation.shift': {
 				const rep = state.character.core.reputation.find((r) => r.faction === op.faction);
-				if (rep) {
-					rep.hidden[op.axis] = (rep.hidden[op.axis] ?? 0) + op.delta;
-					ok(op, `${op.faction}/${op.axis} ${op.delta} (скрыто)`);
-				} else {
-					reject(op, `фракция «${op.faction}» неизвестна (создаётся при первой встрече, Фаза 4)`);
-				}
+				const target = rep ?? { faction: op.faction, tier: 'Нейтрален' as const, hidden: { доверие: 0, страх: 0, долг: 0, вражда: 0, романтика: 0 } };
+				target.hidden[op.axis] = (target.hidden[op.axis] ?? 0) + op.delta;
+				target.tier = tierFromHidden(target.hidden);
+				if (!rep) state.character.core.reputation.push(target);
+				ok(op, `${op.faction}/${op.axis} ${op.delta} → ${target.tier} (скрыто)`);
 				break;
 			}
 
@@ -353,10 +353,97 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 				break;
 			}
 
+			// --- Контракты / локации / таймеры / прогрессия (ТЗ §9.7, §9.8, §9.11) ---
+
+			case 'contract.offer': {
+				const f = op.fields as Partial<Contract> & { title?: string };
+				const id = (f.id as string) ?? `c_${state.contracts.length}`;
+				if (!f.title) {
+					reject(op, 'контракт без title');
+					break;
+				}
+				state.contracts.push({
+					id,
+					title: f.title,
+					status: 'предложен',
+					objectives: f.objectives ?? [],
+					...(f.giver_npc ? { giver_npc: f.giver_npc } : {}),
+					...(f.reward ? { reward: f.reward } : {}),
+					...(f.deadline_day != null ? { deadline_day: f.deadline_day } : {}),
+					...(f.faction ? { faction: f.faction } : {}),
+					...(f.notes ? { notes: f.notes } : {})
+				});
+				ok(op, `контракт «${f.title}» (${id})`);
+				break;
+			}
+
+			case 'contract.update': {
+				const c = state.contracts.find((x) => x.id === op.id);
+				if (!c) {
+					reject(op, `контракт ${op.id} не найден`);
+					break;
+				}
+				Object.assign(c, op.fields);
+				ok(op, `контракт ${op.id} обновлён`);
+				break;
+			}
+
+			case 'contract.close': {
+				const c = state.contracts.find((x) => x.id === op.id);
+				if (!c) {
+					reject(op, `контракт ${op.id} не найден`);
+					break;
+				}
+				c.status = op.status;
+				ok(op, `контракт ${op.id} → ${op.status}`);
+				break;
+			}
+
+			case 'location.note': {
+				const loc = state.locations.find((l) => l.id === op.id);
+				if (loc) {
+					Object.assign(loc, op.fields);
+					ok(op, `локация ${op.id} обновлена`);
+				} else {
+					const f = op.fields as { name?: string; region?: string; type?: string };
+					state.locations.push({
+						id: op.id,
+						name: f.name ?? op.id,
+						region: f.region ?? '—',
+						type: f.type ?? 'место'
+					});
+					ok(op, `локация ${op.id} создана`);
+				}
+				break;
+			}
+
+			case 'timer.add': {
+				const id = `t_${state.timers.length}`;
+				state.timers.push({ id, label: op.label, due_day: op.due_day, type: op.type, ...(op.payload ? { payload: op.payload } : {}) });
+				ok(op, `таймер «${op.label}» → День ${op.due_day}`);
+				break;
+			}
+
+			case 'timer.fire': {
+				const idx = state.timers.findIndex((t) => t.id === op.id);
+				if (idx === -1) {
+					reject(op, `таймер ${op.id} не найден`);
+					break;
+				}
+				const [fired] = state.timers.splice(idx, 1);
+				ok(op, `таймер сработал: ${fired!.label}`);
+				break;
+			}
+
+			case 'specialization.offer': {
+				state.session.open_threads.push(`Специализация на выбор: ${op.options.join(' / ')}`);
+				ok(op, `предложены специализации: ${op.options.join(', ')}`);
+				break;
+			}
+
 			default:
-				// Прочие операции (npc.*, contract.*, location.*, timer.*,
-				// specialization.offer) реализуются в фазах 3–5.
-				reject(op, `операция пока не реализована (фаза 3–5)`);
+				// Не достижимо: все варианты Op обработаны выше.
+				reject(op, `неизвестная операция`);
 		}
 	}
 
