@@ -114,6 +114,8 @@ export function applyOverrides(cfg: ServerConfig, base: ConfigBaseline, ov: Conf
 
 /** Безопасная для клиента картина конфига: какие ключи заданы (без значений) + модели. */
 export function publicConfigView(cfg: ServerConfig, ov: ConfigOverrides) {
+	const E = DEFAULT_MODEL_CONFIG.models;
+	const opts = (...ids: (string | undefined)[]) => [...new Set(ids.filter((x): x is string => Boolean(x)))];
 	return {
 		keysSet: {
 			default: Boolean(cfg.keys.default),
@@ -127,6 +129,13 @@ export function publicConfigView(cfg: ServerConfig, ov: ConfigOverrides) {
 			validator: cfg.models.models.validator.model,
 			director: cfg.models.models.director.model,
 			fallback: cfg.models.models.fallback_narrator.model
+		},
+		// Готовые варианты по ролям (основная + альтернативная из дефолтов движка) — для выпадающих списков.
+		options: {
+			narrator: opts(E.narrator.model, E.narrator.alternative),
+			validator: opts(E.validator.model, E.validator.alternative),
+			director: opts(E.director.model, E.director.alternative),
+			fallback: opts(E.fallback_narrator.model, E.fallback_narrator.alternative)
 		},
 		// какие именно поля заданы переопределением (чтобы UI показал «из админки» vs «из env»)
 		overridden: {

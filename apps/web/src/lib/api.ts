@@ -78,6 +78,7 @@ export const api = {
 export interface AdminConfigView {
 	keysSet: Record<'default' | 'narrator' | 'validator' | 'director' | 'fallback', boolean>;
 	models: Record<'narrator' | 'validator' | 'director' | 'fallback', string>;
+	options: Record<'narrator' | 'validator' | 'director' | 'fallback', string[]>;
 	overridden: { keys: string[]; models: string[] };
 }
 export interface AdminConfigPatch {
