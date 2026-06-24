@@ -35,6 +35,10 @@
 	let showOnboarding = $state(false);
 	let ledgerOpen = $state(true);
 	let highlight = $state<Set<string>>(new Set());
+	// Режиссёр вызывается сам между арками: счётчик ходов с последней арки.
+	let turnsSinceArc = $state(0);
+	let directorBusy = $state(false);
+	const DIRECTOR_INTERVAL = 6;
 
 	const thread = $derived(game.state ? threadModel(game.state) : { intensity: 0.2, tone: 'accent' as const, pulse: false, label: '' });
 	const topStatus = $derived(game.state ? statusFields(game.state) : []);
@@ -120,6 +124,11 @@
 			const { clean, ops } = extractOps(master.text);
 			master.text = clean;
 			logEvent('proposed_ops', { count: ops.length, ops }, ops.length ? 'info' : 'debug');
+			if (!master.text.trim()) {
+				master.text = ops.length
+					? '(Мастер внёс изменения, но не описал сцену. Продолжи — опиши, что делаешь.)'
+					: '⚠ Мастер не прислал ответ — на бесплатной модели так бывает. Попробуй отправить ход ещё раз; при повторе смени модель Ведущего в настройках.';
+			}
 			if (ops.length && game.state) {
 				const capBefore = game.state.inventory.capital_mp;
 				const hpBefore = game.state.character.core.hp.cur;
@@ -170,15 +179,27 @@
 		if (fired.length) logEvent('worldsim', { fired });
 		for (const f of fired) addEntry('system', `⟳ Мир помнит: ${f}`);
 		await flushLogs();
+
+		// Режиссёр сам подкидывает поворот между арками (по накоплению ходов, не кнопкой).
+		turnsSinceArc += 1;
+		if (!game.state?.combat && turnsSinceArc >= DIRECTOR_INTERVAL) {
+			void runDirector();
+		}
 	}
 
+	/** Автоматический Режиссёр: вне горячего пути, мягкий хук. */
 	async function runDirector() {
-		if (!game.state) return;
-		const arc = await directorPropose();
-		if (!arc) return;
-		addEntry('system', '🎬 Режиссёр обдумывает поворот…');
-		const hook = await composeHook(settings.proxyUrl, arc, game.state);
-		addEntry('system', `🎬 Режиссёр (мягкий хук, не приказ): ${hook}`);
+		if (!game.state || directorBusy) return;
+		directorBusy = true;
+		turnsSinceArc = 0;
+		try {
+			const arc = await directorPropose();
+			if (!arc) return;
+			const hook = await composeHook(settings.proxyUrl, arc, game.state);
+			addEntry('system', `🎬 Новый поворот на горизонте: ${hook}`);
+		} finally {
+			directorBusy = false;
+		}
 	}
 
 	function changedItems(before: Map<string, number>): Set<string> {
@@ -314,9 +335,6 @@
 				<span class="sync">⊙</span> Пролог
 			{/if}
 		</div>
-		{#if game.state}
-			<button class="icon" onclick={runDirector} aria-label="Режиссёр" title="Режиссёр: предложить новую арку">🎬</button>
-		{/if}
 		<button class="icon" onclick={() => (showCampaigns = true)} aria-label="Кампании" title="Кампании">📚</button>
 		<button class="icon" onclick={() => (showRules = true)} aria-label="Файлы правил" title="Файлы правил">📖</button>
 		<button class="icon" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>

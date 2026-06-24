@@ -28,8 +28,10 @@ export interface StatusField {
 export function statusFields(state: GameState): StatusField[] {
 	const c = state.character.core;
 	const s = state.session;
+	const loc = state.locations.find((l) => l.id === s.location_id);
 	const fields: StatusField[] = [
 		{ label: 'День', value: `${s.day} · ${s.time_of_day} · ${s.season}` },
+		{ label: 'Локация', value: loc ? loc.name : s.weather ?? '—' },
 		{ label: 'HP', value: `${c.hp.cur}/${c.hp.max}`, mono: true },
 		{ label: 'Вынос.', value: `${c.stamina.cur}/${c.stamina.max}`, mono: true },
 		{ label: 'Капитал', value: formatMoney(state.inventory.capital_mp), mono: true }

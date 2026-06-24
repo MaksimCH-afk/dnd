@@ -323,7 +323,7 @@ export function createCharacter(choices: CreationChoices): GameState {
 			season: 'весна',
 			weather: 'свежее утро',
 			location_id: 'loc_start',
-			current_moment: `${loc.name}, ${loc.region}. ${choices.name} начинает свой путь.`,
+			current_moment: `${loc.name}, ${loc.region}. Здесь начинается твой путь.`,
 			npcs_in_scene: [],
 			open_threads: []
 		}

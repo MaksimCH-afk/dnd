@@ -49,9 +49,14 @@ export interface ProposedArc {
  * комбинации, избегая использованных мотивов-ключей; если пространство исчерпано
  * (очень маловероятно — 8×6×6×6×6=10368), берёт наименее похожую.
  */
-export function pickNextArc(arcs: Arc[], rng: Rng, attempts = 64): ProposedArc {
+export function pickNextArc(arcs: Arc[], rng: Rng, attempts = 96): ProposedArc {
 	const used = usedMotifs(arcs);
+	// Значения осей из недавних арок (последние 3) — чтобы новая арка ощущалась иной.
+	const recentValues = new Set<string>();
+	for (const a of arcs.slice(-3)) for (const t of a.tags) recentValues.add(t);
+
 	let best: ArcCombo | null = null;
+	let bestScore = -1;
 
 	for (let i = 0; i < attempts; i++) {
 		const combo: ArcCombo = {
@@ -61,15 +66,26 @@ export function pickNextArc(arcs: Arc[], rng: Rng, attempts = 64): ProposedArc {
 			antagonist: rng.pick(ARC_AXES.antagonist),
 			structure: rng.pick(ARC_AXES.structure)
 		};
-		const key = comboKey(combo);
-		if (!used.has(key)) {
+		if (used.has(comboKey(combo))) continue; // точный повтор — мимо
+		// Чем меньше пересечение с недавними значениями осей — тем лучше.
+		const overlap = [combo.theme, combo.faction, combo.region, combo.antagonist, combo.structure].filter((v) => recentValues.has(v)).length;
+		const score = 5 - overlap;
+		if (score > bestScore) {
+			bestScore = score;
 			best = combo;
-			break;
+			if (overlap === 0) break; // идеально — полностью свежая
 		}
-		best = combo; // fallback — последняя попытка
 	}
 
-	const combo = best!;
+	// Фоллбэк, если всё перебрали (пространство исчерпано).
+	const combo =
+		best ?? {
+			theme: rng.pick(ARC_AXES.theme),
+			faction: rng.pick(ARC_AXES.faction),
+			region: rng.pick(ARC_AXES.region),
+			antagonist: rng.pick(ARC_AXES.antagonist),
+			structure: rng.pick(ARC_AXES.structure)
+		};
 	const key = comboKey(combo);
 	const hook = `${combo.structure} в регионе «${combo.region}»: ${combo.theme} с участием «${combo.faction}»; за этим стоит ${combo.antagonist}.`;
 	return { combo, key, hook, tags: [combo.theme, combo.faction, combo.region, combo.antagonist, combo.structure] };

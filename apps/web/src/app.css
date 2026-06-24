@@ -50,6 +50,11 @@
 	--text-dim: #5c574a;
 	--link: #2a4a6a;
 	--border: color-mix(in srgb, #1c1a14 14%, transparent);
+	/* Прозу/акценты компоненты красят палитрой vellum/moon — переопределяем под светлый фон. */
+	--vellum-100: #1c1a14;
+	--vellum-300: #5c574a;
+	--moon-300: #2a4a6a;
+	--accent-400: #1f8f84;
 }
 
 * {
