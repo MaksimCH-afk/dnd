@@ -16,6 +16,7 @@ import {
 	tickWorld,
 	pickNextArc,
 	beginArc,
+	migrate,
 	SCHEMA_VERSION,
 	type GameState,
 	type Op,
@@ -34,7 +35,22 @@ export const game = $state<{ state: GameState | null; lastApply: ApplyResult | n
 export async function loadGame(): Promise<void> {
 	if (!store) return;
 	const saved = await store.get(KEY);
-	if (saved) game.state = saved;
+	if (saved) game.state = migrate(saved).state; // мигрируем старые сейвы (ТЗ §15)
+}
+
+/** Импорт сейв-бандла (JSON-канон) — «загрузка как в любой игре». Возвращает ошибку или null. */
+export async function importBundle(jsonText: string): Promise<string | null> {
+	try {
+		const raw = JSON.parse(jsonText);
+		const canon = typeof raw === 'object' && raw && 'canon.json' in raw ? JSON.parse((raw as Record<string, string>)['canon.json']!) : raw;
+		const res = migrate(canon);
+		game.state = res.state;
+		game.lastApply = null;
+		await persist();
+		return null;
+	} catch (e) {
+		return (e as Error).message;
+	}
 }
 
 export async function persist(): Promise<void> {

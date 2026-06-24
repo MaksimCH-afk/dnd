@@ -9,7 +9,9 @@
 	import CreationWizard from '$lib/components/CreationWizard.svelte';
 	import { chronicle, addEntry, clearChronicle } from '$lib/chronicle.svelte';
 	import { settings } from '$lib/settings.svelte';
-	import { game, loadGame, commitState, applyTurn, checkSeedsNow, directorPropose } from '$lib/game.svelte';
+	import { game, loadGame, commitState, applyTurn, checkSeedsNow, directorPropose, importBundle } from '$lib/game.svelte';
+	import { isDarkScene } from '$lib/darkscene';
+	import { buildSaveBundle } from '$lib/reports';
 	import type { GameState } from '@rpg/engine';
 	import { streamLlm } from '$lib/llm';
 	import { buildNarratorMessages } from '$lib/prompt';
@@ -69,6 +71,8 @@
 		const npcBefore = game.state.npc.length;
 		const messages = buildNarratorMessages(game.state, chronicle.entries, playerText, retrieved);
 		const master = addEntry('master', '', true);
+		// Тёмная сцена → упреждающий фоллбэк-профиль (не цензор).
+		const preferFallback = isDarkScene(playerText, game.state.session.current_moment);
 		busy = true;
 		try {
 			await streamLlm(settings.proxyUrl, 'narrator', messages, {
@@ -80,7 +84,7 @@
 				onError: (e) => {
 					master.text = master.text || `⚠ ${describeError(e.code)}: ${e.message}`;
 				}
-			});
+			}, { preferFallback });
 			// Извлечь предложенные операции, применить через движок.
 			const { clean, ops } = extractOps(master.text);
 			master.text = clean;
@@ -136,7 +140,35 @@
 			addEntry('system', 'Нечего сохранять — игра не начата.');
 			return;
 		}
-		addEntry('system', buildSaveReport(game.state, game.lastApply));
+		// Канон уже персистится в IndexedDB; здесь — экспорт бандла файлом.
+		const bundle = buildSaveBundle(game.state);
+		downloadFile(`save-day${game.state.session.day}.json`, bundle['canon.json']!);
+		addEntry('system', buildSaveReport(game.state, game.lastApply) + '\nСейв выгружен файлом.');
+	}
+
+	function downloadFile(name: string, content: string) {
+		const blob = new Blob([content], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = name;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
+	async function loadSaveFile(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		const err = await importBundle(await file.text());
+		input.value = '';
+		if (err) {
+			addEntry('system', `Не удалось загрузить сейв: ${err}`);
+			return;
+		}
+		clearChronicle();
+		addEntry('system', `Сейв загружен. День ${game.state!.session.day}.`);
+		addEntry('master', game.state!.session.current_moment);
 	}
 
 	function doGo() {
@@ -221,6 +253,10 @@
 					<h2 class="mono">Гроссбух</h2>
 					<p>Игра не начата.</p>
 					<button class="newgame" onclick={() => (showCreation = true)}>Новая игра</button>
+					<label class="loadsave">
+						Загрузить сейв
+						<input type="file" accept=".json,application/json" onchange={loadSaveFile} hidden />
+					</label>
 					<small>Создание персонажа: раса, направление, скрытая проверка таланта.</small>
 				</div>
 			{/if}
@@ -324,6 +360,14 @@
 		border-radius: var(--radius);
 		padding: 0.6rem 1.2rem;
 		font-size: 0.95em;
+	}
+	.loadsave {
+		display: inline-block;
+		margin-bottom: 0.8rem;
+		font-size: 0.85em;
+		color: var(--link);
+		cursor: pointer;
+		text-decoration: underline;
 	}
 	.empty-ledger small {
 		display: block;
