@@ -4,6 +4,7 @@
   "private": true,
   "description": "Local-first PWA для соло текстового НРИ: детерминированный движок состояния + LLM-связка через OpenRouter",
   "type": "module",
+  "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20"
   },
@@ -18,5 +19,8 @@
   },
   "devDependencies": {
     "typescript": "^5.5.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "onnxruntime-node", "protobufjs"]
   }
 }
