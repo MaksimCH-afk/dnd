@@ -52,6 +52,7 @@ export async function* streamCompletion(
 		const isFallback = model === cfg.models.models.fallback_narrator.model;
 		for (let r = 0; r <= maxRetries; r++) {
 			attempts++;
+			let retryAfterMs = 0;
 			try {
 				const headers: Record<string, string> = {
 					'Content-Type': 'application/json',
@@ -76,13 +77,18 @@ export async function* streamCompletion(
 					break outer;
 				}
 				lastErr = `HTTP ${resp.status} (${model})`;
+				// При 429 уважаем Retry-After (сек) — пережидаем лимит free-моделей.
+				if (resp.status === 429) {
+					const ra = Number.parseInt(resp.headers.get('retry-after') ?? '', 10);
+					if (Number.isFinite(ra) && ra > 0) retryAfterMs = Math.min(ra * 1000, 30000);
+				}
 				await resp.text().catch(() => undefined);
 				if (!isRetryable(resp.status)) break;
 			} catch (err) {
 				if (signal.aborted) return;
 				lastErr = `сеть: ${(err as Error).message} (${model})`;
 			}
-			if (r < maxRetries) await sleep(Math.min(backoffBaseMs * 2 ** r, backoffMaxMs));
+			if (r < maxRetries) await sleep(Math.max(retryAfterMs, Math.min(backoffBaseMs * 2 ** r, backoffMaxMs)));
 		}
 	}
 

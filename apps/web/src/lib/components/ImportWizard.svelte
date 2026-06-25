@@ -64,10 +64,7 @@
 		<button class="close" onclick={oncancel} aria-label="Закрыть">✕</button>
 	</header>
 
-	<p class="lead">
-		Вставь или загрузи свои документы — сервер соберёт из них персонажа, инвентарь,
-		лица и текущую сцену, и партия продолжится. Достаточно хотя бы одного документа.
-	</p>
+	<p class="lead">Вставь или загрузи документы — сервер соберёт персонажа, инвентарь, лица и сцену. Хватит и одного.</p>
 
 	<div class="slots">
 		{#each slots as s (s.key)}
@@ -80,7 +77,7 @@
 					</label>
 				</div>
 				<textarea
-					rows="4"
+					rows="2"
 					placeholder={s.hint}
 					value={val(s.key)}
 					oninput={(e) => setVal(s.key, (e.currentTarget as HTMLTextAreaElement).value)}
@@ -102,20 +99,20 @@
 
 <style>
 	.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 12; }
-	.panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(94vw, 600px); max-height: 90vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem 1.4rem 1.4rem; z-index: 13; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
-	header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; }
-	header h2 { margin: 0; font-size: 1.2rem; }
+	.panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(94vw, 560px); max-height: 92vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.2rem 1.1rem; z-index: 13; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+	header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; }
+	header h2 { margin: 0; font-size: 1.1rem; }
 	.close { background: none; border: none; color: var(--text-dim); font-size: 1.1rem; }
-	.lead { font-size: .9em; color: var(--text-dim); line-height: 1.5; margin: 0 0 1rem; }
-	.slots { display: flex; flex-direction: column; gap: .9rem; }
-	.slot-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .3rem; }
-	.slot-label { font-family: var(--font-display); font-size: .92rem; color: var(--warm); }
-	.file { font-size: .72rem; color: var(--accent); cursor: pointer; border: 1px solid var(--chip-br); border-radius: 14px; padding: .1rem .6rem; }
-	textarea { width: 100%; resize: vertical; background: var(--field, var(--surface-raised)); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: .5rem .7rem; font: inherit; font-size: .9em; line-height: 1.45; }
-	.err { color: var(--danger); font-size: .85em; }
-	.actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
-	.ghost { background: var(--surface-raised); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: .55rem 1rem; }
-	.primary { background: var(--accent); color: var(--on-accent); border: none; border-radius: 8px; padding: .55rem 1.2rem; }
+	.lead { font-size: .82em; color: var(--text-dim); line-height: 1.4; margin: 0 0 .7rem; }
+	.slots { display: flex; flex-direction: column; gap: .55rem; }
+	.slot-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .2rem; }
+	.slot-label { font-family: var(--font-display); font-size: .85rem; color: var(--warm); }
+	.file { font-size: .68rem; color: var(--accent); cursor: pointer; border: 1px solid var(--chip-br); border-radius: 14px; padding: .05rem .5rem; }
+	textarea { width: 100%; resize: vertical; background: var(--field, var(--surface-raised)); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: .4rem .6rem; font: inherit; font-size: .85em; line-height: 1.4; }
+	.err { color: var(--danger); font-size: .82em; margin: .5rem 0 0; }
+	.actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: .8rem; }
+	.ghost { background: var(--surface-raised); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: .5rem 1rem; }
+	.primary { background: var(--accent); color: var(--on-accent); border: none; border-radius: 8px; padding: .5rem 1.1rem; }
 	.primary:disabled { opacity: .5; cursor: not-allowed; }
-	.note { display: block; margin-top: .7rem; font-size: .74em; color: var(--text-dim); line-height: 1.4; }
+	.note { display: block; margin-top: .6rem; font-size: .7em; color: var(--text-dim); line-height: 1.35; }
 </style>
