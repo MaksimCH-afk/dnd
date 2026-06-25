@@ -99,7 +99,7 @@
 
 <style>
 	.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 12; }
-	.panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(94vw, 560px); max-height: 92vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.2rem 1.1rem; z-index: 13; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+	.panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(96vw, 720px); max-height: 92vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem clamp(1.1rem, 2.5vw, 1.8rem) 1.1rem; z-index: 13; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
 	header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; }
 	header h2 { margin: 0; font-size: 1.1rem; }
 	.close { background: none; border: none; color: var(--text-dim); font-size: 1.1rem; }
