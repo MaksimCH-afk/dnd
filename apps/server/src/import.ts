@@ -66,7 +66,9 @@ const SYSTEM = `Ты — парсер игровых документов нас
   "current_moment": "2–4 предложения: где герой сейчас и что происходит",
   "recap": "краткий пересказ предыстории (до 6 предложений) для летописи"
 }
-Если данных нет — выбирай разумные значения по контексту. Имена/названия сохраняй как в документах.`;
+Если данных нет — выбирай разумные значения по контексту. Имена/названия сохраняй как в документах.
+ВАЖНО: пиши КОМПАКТНО — для inventory и npcs только название/имя и 1 короткая заметка,
+НЕ копируй длинные описания дословно. Не более ~25 предметов и ~12 NPC (самые важные).`;
 
 function pick<T extends string>(val: unknown, allowed: readonly T[], fallback: T): T {
 	if (typeof val === 'string') {
@@ -113,7 +115,7 @@ export async function importGame(
 		const msgs = attempt === 0
 			? messages
 			: [...messages, { role: 'user' as const, content: 'Верни ТОЛЬКО валидный JSON-объект по схеме. Без пояснений, без markdown.' }];
-		const r = await completeDetailed(cfg, 'narrator', msgs, { temperature: 0.2, maxTokens: 2200 });
+		const r = await completeDetailed(cfg, 'narrator', msgs, { temperature: 0.2, maxTokens: 4096 });
 		const raw = r.text;
 		lastRaw = raw;
 		if (!raw.trim()) {
