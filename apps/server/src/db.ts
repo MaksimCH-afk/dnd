@@ -79,6 +79,16 @@ export class Db {
 		);
 	}
 
+	/** Выгрузка служебных логов (NDJSON-события ходов), свежие сверху. */
+	async exportLogs(limit = 50000): Promise<unknown[]> {
+		const r = await this.pool.query(
+			`SELECT campaign_id, ts, turn_id, seq, type, level, payload
+			 FROM logs ORDER BY id DESC LIMIT $1`,
+			[limit]
+		);
+		return r.rows;
+	}
+
 	async healthy(): Promise<boolean> {
 		try {
 			await this.pool.query('SELECT 1');

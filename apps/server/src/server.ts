@@ -82,6 +82,38 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		return;
 	}
 
+	// GET /logs/export — выгрузка всех служебных логов + снимок состояния сервера (файл)
+	if (req.method === 'GET' && path === '/logs/export') {
+		const models: Record<string, string> = {};
+		for (const [role, m] of Object.entries(cfg.models.models)) models[role] = m.model;
+		let logs: unknown[] = [];
+		let logsError: string | undefined;
+		try {
+			logs = await db.exportLogs(50000);
+		} catch (e) {
+			logsError = (e as Error).message;
+		}
+		const meta = {
+			exportedAt: new Date().toISOString(),
+			version: VERSION,
+			db: await db.healthy(),
+			hasKey: Boolean(cfg.keys.default || cfg.keys.narrator),
+			models,
+			overrides: { keys: overrides.keys ? Object.keys(overrides.keys) : [], models: overrides.models ?? {} }
+		};
+		const body = JSON.stringify(
+			{ meta, count: logs.length, truncated: logs.length >= 50000, ...(logsError ? { logsError } : {}), logs },
+			null,
+			2
+		);
+		res.writeHead(200, {
+			'Content-Type': 'application/json; charset=utf-8',
+			'Content-Disposition': 'attachment; filename="rpg-server-logs.json"'
+		});
+		res.end(body);
+		return;
+	}
+
 	// GET /campaigns
 	if (req.method === 'GET' && path === '/campaigns') {
 		json(res, 200, { campaigns: await campaigns.list() });

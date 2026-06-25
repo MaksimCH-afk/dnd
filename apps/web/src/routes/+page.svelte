@@ -62,6 +62,57 @@
 		await sendTurn(text);
 	}
 
+	let cacheBusy = $state(false);
+
+	// Полный сброс клиентского кэша: Service Worker + все Cache Storage → перезагрузка.
+	async function resetCache() {
+		cacheBusy = true;
+		try {
+			if ('serviceWorker' in navigator) {
+				const regs = await navigator.serviceWorker.getRegistrations();
+				await Promise.all(regs.map((r) => r.unregister()));
+			}
+			if ('caches' in window) {
+				const keys = await caches.keys();
+				await Promise.all(keys.map((k) => caches.delete(k)));
+			}
+		} catch {
+			/* игнор — всё равно перезагружаем */
+		}
+		// жёсткая перезагрузка без кэша
+		location.reload();
+	}
+
+	// Скачать все служебные логи: серверные (NDJSON ходов + снимок конфига) + клиентский контекст.
+	async function downloadLogs() {
+		const base = (settings.serverUrl || '').replace(/\/+$/, '');
+		let server: unknown;
+		try {
+			const res = await fetch(`${base}/logs/export`);
+			server = res.ok ? await res.json() : { error: `HTTP ${res.status}` };
+		} catch (e) {
+			server = { error: (e as Error).message };
+		}
+		const bundle = {
+			client: {
+				at: new Date().toISOString(),
+				url: location.href,
+				userAgent: navigator.userAgent,
+				settings: { serverUrl: settings.serverUrl, theme: settings.theme, textScale: settings.textScale, onboarded: settings.onboarded },
+				session: { campaignId: session.campaignId, entries: session.entries.length, busy: session.busy, connected: session.connected }
+			},
+			server
+		};
+		const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+		const a = document.createElement('a');
+		a.href = URL.createObjectURL(blob);
+		a.download = `rpg-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+	}
+
 	async function onCreated(choices: CreationChoices) {
 		showCreation = false;
 		try {
@@ -86,6 +137,8 @@
 			{/if}
 		</div>
 	<div class="actions">
+		<button class="icon" onclick={downloadLogs} aria-label="Скачать логи" title="Скачать служебные логи (сервер + клиент)">⬇</button>
+		<button class="icon" onclick={resetCache} disabled={cacheBusy} aria-label="Сбросить кэш" title="Сбросить кэш (Service Worker + Cache Storage) и перезагрузить">♻</button>
 		<button class="icon" onclick={() => (showCampaigns = true)} aria-label="Кампании" title="Кампании">📚</button>
 		<button class="icon" onclick={() => (showReference = true)} aria-label="Справка по моделям" title="Справка: платные модели на роль Ведущего">💳</button>
 		<button class="icon accent" onclick={toggleTheme} aria-label="Сменить тему" title={settings.theme === 'dark' ? 'Светлая тема (пергамент)' : 'Тёмная тема (тушь)'}>{settings.theme === 'dark' ? '☀' : '☾'}</button>
