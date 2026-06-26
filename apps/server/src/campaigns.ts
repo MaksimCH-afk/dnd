@@ -75,6 +75,20 @@ export class Campaigns {
 		return r.rows;
 	}
 
+	/** Удержать только последние `keep` автосейвов кампании; ручные точки (/save) не трогаются. */
+	async pruneAutosaves(id: string, keep: number): Promise<void> {
+		await this.db.pool.query(
+			`DELETE FROM snapshots
+			 WHERE campaign_id = $1 AND (label LIKE 'автосейв%' OR label LIKE 'гибель%')
+			   AND id NOT IN (
+			     SELECT id FROM snapshots
+			     WHERE campaign_id = $1 AND (label LIKE 'автосейв%' OR label LIKE 'гибель%')
+			     ORDER BY id DESC LIMIT $2
+			   )`,
+			[id, keep]
+		);
+	}
+
 	async restore(snapshotId: number): Promise<{ campaignId: string; state: GameState } | null> {
 		const r = await this.db.pool.query('SELECT campaign_id, state FROM snapshots WHERE id = $1', [snapshotId]);
 		if (!r.rowCount) return null;

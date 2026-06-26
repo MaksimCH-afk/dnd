@@ -125,6 +125,8 @@ export const api = {
 		jpost<{ ok: boolean }>(base, `/campaigns/${id}/save`, { state, snapshot }),
 	snapshots: (base: string, id: string) =>
 		jget<{ snapshots: SnapshotRow[] }>(base, `/campaigns/${id}/snapshots`).then((d) => d.snapshots),
+	restore: (base: string, id: string, snapshotId: number) =>
+		jpost<{ state: GameState }>(base, `/campaigns/${id}/restore`, { snapshotId }).then((d) => d.state),
 	remove: (base: string, id: string) =>
 		fetch(`${norm(base)}/campaigns/${id}`, { method: 'DELETE', headers: authHeaders() }).then(() => undefined)
 };
@@ -201,7 +203,7 @@ export const rulesApi = {
 export interface TurnHandlers {
 	onDelta?: (text: string) => void;
 	onSystem?: (text: string) => void;
-	onDone?: (state: GameState, meta: { model?: string; usedFallback?: boolean }) => void;
+	onDone?: (state: GameState, meta: { model?: string; usedFallback?: boolean; dead?: boolean }) => void;
 	onError?: (message: string) => void;
 }
 
@@ -235,7 +237,7 @@ export async function turn(base: string, campaignId: string, input: string, h: T
 					const e = JSON.parse(t.slice(5).trim());
 					if (e.type === 'delta') h.onDelta?.(e.text);
 					else if (e.type === 'system') h.onSystem?.(e.text);
-					else if (e.type === 'done') h.onDone?.(e.state, { model: e.model, usedFallback: e.usedFallback });
+					else if (e.type === 'done') h.onDone?.(e.state, { model: e.model, usedFallback: e.usedFallback, dead: e.dead });
 					else if (e.type === 'error') h.onError?.(e.message);
 				} catch {
 					/* неполный кадр */

@@ -4,7 +4,7 @@
  */
 import type { CreationChoices, GameState } from '@rpg/engine';
 import { settings } from './settings.svelte';
-import { api, turn } from './api';
+import { api, turn, type SnapshotRow } from './api';
 
 export interface ChronicleEntry {
 	id: string;
@@ -23,7 +23,8 @@ export const session = $state<{
 	entries: ChronicleEntry[];
 	busy: boolean;
 	connected: boolean;
-}>({ state: null, campaignId: null, entries: [], busy: false, connected: false });
+	dead: boolean;
+}>({ state: null, campaignId: null, entries: [], busy: false, connected: false, dead: false });
 
 function entriesFromState(state: GameState): ChronicleEntry[] {
 	return (state.transcript ?? []).map((t) => ({ id: nextId(), speaker: t.speaker, text: t.text, ...(t.model ? { model: t.model } : {}) }));
@@ -45,10 +46,26 @@ export async function openCampaign(id: string): Promise<void> {
 	const state = await api.load(settings.serverUrl, id);
 	session.campaignId = id;
 	session.state = state;
+	session.dead = state.character.core.hp.cur <= 0;
 	session.entries = entriesFromState(state);
 	if (session.entries.length === 0 && state.session.current_moment) {
 		session.entries = [{ id: nextId(), speaker: 'master', text: state.session.current_moment }];
 	}
+}
+
+/** Точки сохранения кампании (для отката). */
+export async function listSnapshots(): Promise<SnapshotRow[]> {
+	if (!session.campaignId) return [];
+	return api.snapshots(settings.serverUrl, session.campaignId);
+}
+
+/** Восстановить точку сохранения (честный «загруз», ТЗ §14/§15). */
+export async function restoreSnapshot(snapshotId: number): Promise<void> {
+	if (!session.campaignId) return;
+	const state = await api.restore(settings.serverUrl, session.campaignId, snapshotId);
+	session.state = state;
+	session.dead = state.character.core.hp.cur <= 0;
+	session.entries = entriesFromState(state);
 }
 
 /** Создать кампанию из выбора игрока (создание персонажа — на сервере). */
@@ -56,6 +73,7 @@ export async function createCampaign(choices: CreationChoices): Promise<void> {
 	const { id, state } = await api.newCampaign(settings.serverUrl, choices);
 	session.campaignId = id;
 	session.state = state;
+	session.dead = false;
 	const mods = Object.keys(state.character.modules).join(', ') || 'без модулей';
 	session.entries = [
 		{ id: nextId(), speaker: 'system', text: `Создан персонаж: ${state.character.core.name}, ${state.character.core.race}, ${state.character.core.directions.join('/')} · модули: ${mods}.` },
@@ -68,6 +86,7 @@ export async function importCampaign(docs: { character: string; inventory: strin
 	const { id, state, warnings } = await api.importGame(settings.serverUrl, docs);
 	session.campaignId = id;
 	session.state = state;
+	session.dead = state.character.core.hp.cur <= 0;
 	session.entries = entriesFromState(state);
 	return warnings ?? [];
 }
@@ -87,6 +106,7 @@ export async function sendTurn(input: string): Promise<void> {
 				session.state = state;
 				master.streaming = false;
 				if (meta.model) master.model = meta.model;
+				session.dead = Boolean(meta.dead);
 				// Авторитетная хроника с сервера (вкл. player/master/system по порядку).
 				session.entries = entriesFromState(state);
 			},

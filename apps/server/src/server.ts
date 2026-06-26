@@ -345,10 +345,24 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		}
 	}
 
-	const m = path.match(/^\/campaigns\/([\w-]+)(\/(load|save|snapshots))?$/);
+	const m = path.match(/^\/campaigns\/([\w-]+)(\/(load|save|snapshots|restore))?$/);
 	if (m) {
 		const id = m[1]!;
 		const sub = m[3];
+		if (req.method === 'POST' && sub === 'restore') {
+			const body = await readJson<{ snapshotId?: number }>(req);
+			if (body.snapshotId == null) {
+				json(res, 400, { error: 'нужен snapshotId' });
+				return;
+			}
+			const r = await campaigns.restore(Number(body.snapshotId));
+			if (!r || r.campaignId !== id) {
+				json(res, 404, { error: 'снапшот не найден для этой кампании' });
+				return;
+			}
+			json(res, 200, { state: r.state });
+			return;
+		}
 		if (req.method === 'POST' && sub === 'load') {
 			const state = await campaigns.load(id);
 			if (!state) {

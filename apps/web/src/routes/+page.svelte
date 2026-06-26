@@ -11,6 +11,7 @@
 	import OnboardingWizard from '$lib/components/OnboardingWizard.svelte';
 	import LoginGate from '$lib/components/LoginGate.svelte';
 	import Ledger from '$lib/components/Ledger.svelte';
+	import SnapshotsPanel from '$lib/components/SnapshotsPanel.svelte';
 	import { settings, toggleTheme } from '$lib/settings.svelte';
 	import { auth, initAuth, logout } from '$lib/auth.svelte';
 	import { session, sendTurn, createCampaign, openCampaign, saveGame, checkConnection } from '$lib/session.svelte';
@@ -24,6 +25,7 @@
 	let showImport = $state(false);
 	let showCreation = $state(false);
 	let showOnboarding = $state(false);
+	let showSnapshots = $state(false);
 	let ledgerOpen = $state(true);
 
 	const thread = $derived(session.state ? threadModel(session.state) : { intensity: 0.2, tone: 'accent' as const, pulse: false, label: '' });
@@ -158,6 +160,7 @@
 	<div class="actions">
 		<button class="icon" onclick={downloadLogs} aria-label="Скачать логи" title="Скачать служебные логи (сервер + клиент)">⬇</button>
 		<button class="icon" onclick={resetCache} disabled={cacheBusy} aria-label="Сбросить кэш" title="Сбросить кэш (Service Worker + Cache Storage) и перезагрузить">♻</button>
+		<button class="icon" onclick={() => (showSnapshots = true)} aria-label="Точки сохранения" title="Точки сохранения (откат)" disabled={!session.campaignId}>⤺</button>
 		<button class="icon" onclick={() => (showCampaigns = true)} aria-label="Кампании" title="Кампании">📚</button>
 		<button class="icon" onclick={() => (showReference = true)} aria-label="Справка по моделям" title="Справка: платные модели на роль Ведущего">💳</button>
 		<button class="icon accent" onclick={toggleTheme} aria-label="Сменить тему" title={settings.theme === 'dark' ? 'Светлая тема (пергамент)' : 'Тёмная тема (тушь)'}>{settings.theme === 'dark' ? '☀' : '☾'}</button>
@@ -169,7 +172,18 @@
 	<main class="layout" class:ledger-open={ledgerOpen}>
 		<section class="chronicle-col">
 			<Chronicle entries={session.entries} />
-			<Composer busy={session.busy} onsend={handleSend} />
+			{#if session.dead}
+				<div class="death" role="alert">
+					<span class="death-title mono">☠ Герой пал</span>
+					<span class="death-text">Смерть окончательна. Восстанови раннюю точку или начни заново.</span>
+					<div class="death-actions">
+						<button onclick={() => (showSnapshots = true)}>⤺ Восстановить точку</button>
+						<button class="ghost" onclick={() => (showCreation = true)}>Новая игра</button>
+					</div>
+				</div>
+			{:else}
+				<Composer busy={session.busy} onsend={handleSend} />
+			{/if}
 		</section>
 
 		<StatusThread intensity={session.busy ? Math.min(1, thread.intensity + 0.2) : thread.intensity} tone={thread.tone} pulse={thread.pulse || session.busy} />
@@ -209,6 +223,7 @@
 	/>
 {/if}
 {#if showReference}<ReferencePanel onclose={() => (showReference = false)} />{/if}
+{#if showSnapshots}<SnapshotsPanel onclose={() => (showSnapshots = false)} onrestored={() => addSystem('⤺ Состояние восстановлено из точки сохранения.')} />{/if}
 {#if showCreation}<CreationWizard oncreated={onCreated} oncancel={() => (showCreation = false)} />{/if}
 {#if showOnboarding}
 	<OnboardingWizard
@@ -233,6 +248,12 @@
 	.layout { flex: 1; display: grid; grid-template-columns: 1fr auto; min-height: 0; }
 	.layout.ledger-open { grid-template-columns: 1fr auto minmax(240px, 320px); }
 	.chronicle-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+	.death { margin: 0 auto; max-width: 70ch; width: 100%; padding: 1rem 1.2rem; border-top: 2px solid var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); display: flex; flex-direction: column; gap: .5rem; }
+	.death-title { color: var(--danger); font-size: .95rem; letter-spacing: .06em; }
+	.death-text { color: var(--text-dim); font-size: .85em; }
+	.death-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+	.death-actions button { background: var(--danger); color: #fff; border: none; border-radius: 6px; padding: .45rem .9rem; font-size: .85em; }
+	.death-actions button.ghost { background: none; color: var(--text-dim); border: 1px solid var(--border); }
 	.ledger { border-left: 1px solid var(--border); background: var(--surface); padding: 1.2rem; overflow-y: auto; }
 	.empty-ledger { color: var(--text-dim); text-align: center; margin-top: 2rem; }
 	.empty-ledger h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }

@@ -31,12 +31,14 @@ import { heroSecretTokens, heroHiddenTraits, sceneHasBlindNpc, heroHasSecret, sc
 export type TurnEvent =
 	| { type: 'delta'; text: string }
 	| { type: 'system'; text: string }
-	| { type: 'done'; master: string; model?: string; usedFallback?: boolean; status: ReturnType<typeof statusFields>; thread: ReturnType<typeof threadModel>; applied: string[]; rejected: { reason: string }[]; state: GameState }
+	| { type: 'done'; master: string; model?: string; usedFallback?: boolean; status: ReturnType<typeof statusFields>; thread: ReturnType<typeof threadModel>; applied: string[]; rejected: { reason: string }[]; state: GameState; dead?: boolean }
 	| { type: 'error'; message: string; code?: string };
 
 type Send = (e: TurnEvent) => void;
 
 const DIRECTOR_INTERVAL = 6;
+const AUTOSNAPSHOT_EVERY = 5; // каждые N ходов — точка возврата
+const AUTOSNAPSHOT_KEEP = 20; // сколько автосейвов держать (ручные /save не трогаются)
 
 function parseStyle(text: string): { style: CombatStyle; flee: boolean } {
 	const t = text.toLowerCase();
@@ -255,8 +257,27 @@ export async function runTurn(
 		send({ type: 'system', text });
 	}
 
-	// 6) Персист в Postgres + финальное событие.
+	// 5b) Смерть героя (ТЗ §14): 0 HP → финал, без воскрешения по прихоти. Предложить откат/новую игру.
+	const dead = state.character.core.hp.cur <= 0;
+	if (dead) {
+		const note = '☠ Герой пал. Смерть значима и окончательна — движок не воскрешает. Восстанови раннюю точку сохранения (честный «загруз») или начни новую игру.';
+		state.transcript!.push({ speaker: 'system', text: note });
+		send({ type: 'system', text: note });
+		void logEvent(db, campaignId, turnId, seq++, 'death', 'warn', { day, hp: state.character.core.hp });
+	}
+
+	// 6) Персист в Postgres + автоснапшот (точка возврата, ТЗ §15) + финальное событие.
 	await campaigns.save(campaignId, state);
+	let snapshotId: number | undefined;
+	if (dead || turnId % AUTOSNAPSHOT_EVERY === 0) {
+		try {
+			snapshotId = await campaigns.snapshot(campaignId, dead ? `гибель · День ${day}` : `автосейв · День ${day}`, state);
+			await campaigns.pruneAutosaves(campaignId, AUTOSNAPSHOT_KEEP);
+		} catch {
+			/* снапшот не критичен для хода */
+		}
+	}
+	void logEvent(db, campaignId, turnId, seq++, 'persist', 'info', { schema_version: state.schema_version, day, ...(snapshotId ? { snapshotId } : {}), dead });
 	send({
 		type: 'done',
 		master,
@@ -266,7 +287,8 @@ export async function runTurn(
 		thread: threadModel(state),
 		applied: res.applied.map((o) => o.op),
 		rejected: res.rejected.map((r) => ({ reason: r.reason })),
-		state
+		state,
+		...(dead ? { dead: true } : {})
 	});
 
 	// 7) Индексация новых фактов/NPC в pgvector (после ответа — не задерживает прозу).
