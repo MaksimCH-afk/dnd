@@ -166,22 +166,25 @@ export class RulesStore implements RuleInjector {
 	private cache = new Map<string, RuleRow>();
 	constructor(private readonly db: Db) {}
 
-	/** Засев из бандла (если в БД пусто) + загрузка всего в память. */
+	/** Засев из бандла (создание + освежение нетронутых сидов) + загрузка всего в память. */
 	async init(): Promise<void> {
 		const dir = bundleDir();
-		let seeded = 0;
+		let created = 0;
+		let refreshed = 0;
 		for (const f of RULE_FILES) {
 			let full = '';
 			try {
 				full = await readFile(resolve(dir, `${f.slug}.md`), 'utf8');
 			} catch {
-				/* файла нет в бандле — засеем пустым, заполнят из админки */
+				/* файла нет в бандле — заполнят из админки */
 			}
 			const core = DEFAULT_CORES[f.slug] ?? '';
-			if (await this.db.seedRule(f.slug, full, core)) seeded++;
+			const r = await this.db.seedRule(f.slug, full, core);
+			if (r === 'created') created++;
+			else if (r === 'refreshed') refreshed++;
 		}
 		await this.reload();
-		if (seeded) console.log(`[rules] засеяно правил из бандла: ${seeded}`);
+		if (created || refreshed) console.log(`[rules] бандл: создано ${created}, освежено ${refreshed}`);
 		console.log(`[rules] загружено правил в память: ${this.cache.size}`);
 	}
 

@@ -129,22 +129,46 @@ export class Db {
 		}
 	}
 
-	/** Засеять правило только если его ещё нет (первичная загрузка из бандла). */
-	async seedRule(slug: string, fullText: string, promptCore: string): Promise<boolean> {
+	/** Одно правило по slug (или null). */
+	async getRule(slug: string): Promise<RuleRow | null> {
 		const r = await this.pool.query(
-			`INSERT INTO rules (slug, full_text, prompt_core, version, updated_at)
-			 VALUES ($1, $2, $3, 1, now())
-			 ON CONFLICT (slug) DO NOTHING
-			 RETURNING slug`,
-			[slug, fullText, promptCore]
+			'SELECT slug, full_text, prompt_core, version, updated_at FROM rules WHERE slug = $1',
+			[slug]
 		);
-		if (r.rowCount) {
+		return (r.rows[0] as RuleRow) ?? null;
+	}
+
+	/** Засев из бандла: создать, если нет; обновить «нетронутый» сид (version=1) при изменении
+	 *  бандла; не трогать правила, отредактированные пользователем (version≥2).
+	 *  Возвращает 'created' | 'refreshed' | 'kept'. */
+	async seedRule(slug: string, fullText: string, promptCore: string): Promise<'created' | 'refreshed' | 'kept'> {
+		const existing = await this.getRule(slug);
+		if (!existing) {
+			await this.pool.query(
+				'INSERT INTO rules (slug, full_text, prompt_core, version, updated_at) VALUES ($1, $2, $3, 1, now())',
+				[slug, fullText, promptCore]
+			);
 			await this.pool.query(
 				'INSERT INTO rule_versions (slug, version, full_text, prompt_core) VALUES ($1, 1, $2, $3)',
 				[slug, fullText, promptCore]
 			);
+			return 'created';
 		}
-		return Boolean(r.rowCount);
+		// Пользователь правил это правило — не перезаписываем сидом.
+		if (existing.version > 1) return 'kept';
+		// Нетронутый сид и бандл изменился — освежаем на месте (версия остаётся 1).
+		if (fullText && (existing.full_text !== fullText || existing.prompt_core !== promptCore)) {
+			await this.pool.query(
+				'UPDATE rules SET full_text = $2, prompt_core = $3, updated_at = now() WHERE slug = $1 AND version = 1',
+				[slug, fullText, promptCore]
+			);
+			await this.pool.query(
+				'UPDATE rule_versions SET full_text = $2, prompt_core = $3 WHERE slug = $1 AND version = 1',
+				[slug, fullText, promptCore]
+			);
+			return 'refreshed';
+		}
+		return 'kept';
 	}
 
 	/** Лёгкий список версий правила (без полного текста). */
