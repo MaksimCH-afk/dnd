@@ -16,6 +16,7 @@ import { tierFromHidden } from './reputation';
 import { startEncounter } from './encounter';
 import { makeRng } from './rng';
 import { unlockedAt } from './progression';
+import { advanceByScale } from './time';
 
 export interface ApplyContext {
 	/** Текущий игровой день (для acquired_day/journal). */
@@ -438,6 +439,14 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 				}
 				const [fired] = state.timers.splice(idx, 1);
 				ok(op, `таймер сработал: ${fired!.label}`);
+				break;
+			}
+
+			case 'time.advance': {
+				const before = state.session.day;
+				state.session = advanceByScale(state.session, op.scale, op.days);
+				const delta = state.session.day - before;
+				ok(op, `время: ${op.scale}${delta ? ` (+${delta} дн.)` : ''} → День ${state.session.day}, ${state.session.time_of_day}`);
 				break;
 			}
 

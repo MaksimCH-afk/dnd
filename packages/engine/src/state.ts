@@ -283,6 +283,8 @@ export interface SessionState {
 	day: number;
 	time_of_day: 'утро' | 'день' | 'вечер' | 'ночь';
 	season: 'зима' | 'весна' | 'лето' | 'осень';
+	/** Скрытые минуты внутри суток (0–1439) для продвижения времени по весу действия (§9.6). */
+	clock_min?: number;
 	weather?: string;
 	location_id?: string;
 	current_moment: string;

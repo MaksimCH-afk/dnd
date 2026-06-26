@@ -130,6 +130,13 @@ export interface TimerFireOp {
 	op: 'timer.fire';
 	id: string;
 }
+export interface TimeAdvanceOp {
+	op: 'time.advance';
+	/** Вес действия во времени (грубо): мгновение|минуты|часы|полдня|день|дни|сон. */
+	scale: 'мгновение' | 'минуты' | 'часы' | 'полдня' | 'день' | 'дни' | 'сон';
+	/** Для крупных переходов (дорога/ожидание): сколько дней. */
+	days?: number;
+}
 export interface CombatStartOp {
 	op: 'combat.start';
 	enemies: { name: string; tier?: 'слабый' | 'обычный' | 'опытный' | 'монстр'; weapon?: string }[];
@@ -209,6 +216,7 @@ export type Op =
 	| LocationNoteOp
 	| TimerAddOp
 	| TimerFireOp
+	| TimeAdvanceOp
 	| CombatStartOp
 	| CombatEndOp
 	| SeedPlantOp

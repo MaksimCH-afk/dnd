@@ -165,3 +165,23 @@ test('specialization.select: выбор применяется и снимает
 	// пустой выбор отклоняется
 	assert.equal(applyOps(state, [{ op: 'specialization.select', choice: '  ' }], ctx).rejected.length, 1);
 });
+
+test('time.advance: накопление минут двигает слот/день; крупные переходы — дни', () => {
+	let state = initialState(); // утро, clock_min не задан → выводится из слота (0)
+	// мелкие действия копят минуты, но утро держится
+	state = applyOps(state, [{ op: 'time.advance', scale: 'минуты' }], ctx).state;
+	assert.equal(state.session.time_of_day, 'утро');
+	assert.equal(state.session.day, 1);
+	// «часы» переводят в день (утро 0–359; +120 мин ×3 → перевалит в «день»)
+	state = applyOps(state, [{ op: 'time.advance', scale: 'часы' }, { op: 'time.advance', scale: 'часы' }, { op: 'time.advance', scale: 'часы' }], ctx).state;
+	assert.equal(state.session.time_of_day, 'день');
+	// дорога: дни — растёт day
+	const before = state.session.day;
+	state = applyOps(state, [{ op: 'time.advance', scale: 'дни', days: 3 }], ctx).state;
+	assert.equal(state.session.day, before + 3);
+	// сон → следующее утро
+	const d2 = state.session.day;
+	state = applyOps(state, [{ op: 'time.advance', scale: 'сон' }], ctx).state;
+	assert.equal(state.session.time_of_day, 'утро');
+	assert.equal(state.session.day, d2 + 1);
+});

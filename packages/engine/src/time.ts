@@ -28,6 +28,66 @@ export function advanceTime(session: SessionState, opts: { slots?: number; days?
 	return { ...session, day, time_of_day: TIME_SLOTS[idx]!, season: seasonOfDay(day) };
 }
 
+// --- Продвижение времени по весу действия (ТЗ §9.6) ---
+// Время ведётся скрыто и грубо: игроку видны день/время суток, минуты не показываются.
+// Сутки = 4 слота × 6 ч = 1440 мин. Слоты: утро 0–359, день 360–719, вечер 720–1079, ночь 1080–1439.
+
+const SLOT_MIN = 360;
+const DAY_MIN = SLOT_MIN * TIME_SLOTS.length;
+
+/** Грубый «вес» действия во времени — не по числу ходов и не в реальных часах. */
+export type TimeScale = 'мгновение' | 'минуты' | 'часы' | 'полдня' | 'день' | 'дни' | 'сон';
+
+const SCALE_MINUTES: Record<Exclude<TimeScale, 'дни' | 'сон'>, number> = {
+	мгновение: 0,
+	минуты: 15,
+	часы: 120,
+	полдня: SLOT_MIN,
+	день: DAY_MIN
+};
+
+function slotStartMin(slot: TimeSlot): number {
+	return TIME_SLOTS.indexOf(slot) * SLOT_MIN;
+}
+
+/** Скрытые минуты внутри суток (0–1439). Если не велись — выводим из слота. */
+export function clockMinutes(session: SessionState): number {
+	return session.clock_min ?? slotStartMin(session.time_of_day);
+}
+
+/**
+ * Продвинуть время по весу действия. Накапливает скрытые минуты, при переходе
+ * границ обновляет слот суток и день. `days` — для крупных переходов (дорога/ожидание).
+ * 'сон' — до следующего утра.
+ */
+export function advanceByScale(session: SessionState, scale: TimeScale, days = 0): SessionState {
+	const cur = clockMinutes(session);
+	let add: number;
+	if (scale === 'дни') add = Math.max(1, Math.round(days || 1)) * DAY_MIN;
+	else if (scale === 'сон') add = (DAY_MIN - cur + slotStartMin('утро') + DAY_MIN) % DAY_MIN || DAY_MIN;
+	else add = SCALE_MINUTES[scale] + (scale === 'день' && days > 1 ? (days - 1) * DAY_MIN : 0);
+
+	const total = cur + add;
+	const dayOffset = Math.floor(total / DAY_MIN);
+	const within = ((total % DAY_MIN) + DAY_MIN) % DAY_MIN;
+	const day = session.day + dayOffset;
+	const slotIdx = Math.floor(within / SLOT_MIN);
+	return { ...session, day, time_of_day: TIME_SLOTS[slotIdx]!, season: seasonOfDay(day), clock_min: within };
+}
+
+/**
+ * Грубый классификатор веса действия по тексту (детерминированный фоллбэк, когда
+ * нарратор не прислал явный `time.advance`). Консервативен: день-переходы — только
+ * на явный сон/ожидание; путешествия лучше двигает нарратор операцией.
+ */
+export function actionTimeScale(text: string): TimeScale {
+	const t = (text ?? '').toLowerCase();
+	if (/\bсплю\b|поспа|вы́?спат|переноч|ночлег|на ночь|до утра|ложусь спать/.test(t)) return 'сон';
+	if (/\bжд[уёе]|ожида|пережида|до вечера|до утра|весь день|сутки/.test(t)) return 'день';
+	if (/тренир|упражня|изуч|исслед|чита[юе]|ритуал|вар[ю и]|кую|лечу|перевяз|молюсь|медитир/.test(t)) return 'часы';
+	return 'минуты';
+}
+
 export type TravelMode = 'пешком' | 'верхом' | 'повозка' | 'корабль';
 const SPEED_KM_PER_DAY: Record<TravelMode, number> = {
 	пешком: 35,

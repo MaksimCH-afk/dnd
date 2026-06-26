@@ -12,6 +12,8 @@ import {
 	pickNextArc,
 	beginArc,
 	tickWorld,
+	advanceByScale,
+	actionTimeScale,
 	npcRecognizesHeroSecret,
 	type CombatStyle,
 	type GameState,
@@ -245,10 +247,42 @@ export async function runTurn(
 		}
 	}
 
+	// 3d) Продвижение времени по весу действия (ТЗ §9.6) — несущая балка: без хода времени
+	// дедлайны/таймеры/time-seeds/заживление мертвы. Нарратор может прислать time.advance
+	// (дорога/ожидание/сон); иначе — детерминированный фоллбэк по тексту действия. В бою время
+	// идёт секундами (отдельно), слоты не двигаем.
+	if (!state.combat && !ops.some((o) => o.op === 'time.advance')) {
+		state.session = advanceByScale(state.session, actionTimeScale(input));
+	}
+	const newDay = state.session.day;
+	const dayDelta = newDay - day;
+	if (dayDelta > 0) {
+		// Наступившие дедлайны/таймеры (due_day достигнут).
+		const fired = state.timers.filter((t) => t.due_day <= newDay);
+		if (fired.length) {
+			state.timers = state.timers.filter((t) => t.due_day > newDay);
+			for (const t of fired) {
+				const text = `⏳ Срок наступил: ${t.label}`;
+				state.transcript!.push({ speaker: 'system', text });
+				send({ type: 'system', text });
+			}
+		}
+		// Заживление/восстановление по прошедшему времени (пассивно, sleep-rate; §9.6).
+		const cc = state.character.core;
+		const hpHealed = Math.min(cc.hp.max - cc.hp.cur, 10 * dayDelta);
+		if (hpHealed > 0) cc.hp.cur += hpHealed;
+		cc.stamina.cur = cc.stamina.max;
+		if (state.character.modules.magic) state.character.modules.magic.power = 'Полон';
+		const text = `🕓 Проходит время — наступает День ${newDay}, ${state.session.time_of_day}.`;
+		state.transcript!.push({ speaker: 'system', text });
+		send({ type: 'system', text });
+		void logEvent(db, campaignId, turnId, seq++, 'mechanics', 'info', { kind: 'time', dayDelta, newDay, time_of_day: state.session.time_of_day, firedTimers: fired.map((t) => t.label), hpHealed });
+	}
+
 	// 3c) Мир-симуляция (ТЗ §12, чинит №1): фракции двигаются сами, рождают слухи/seeds.
 	// Тик по интервалу и вне боя — новизна из симуляции, не из выдумки модели.
 	if (!state.combat && turnId % WORLD_TICK_INTERVAL === 0) {
-		const wRng = makeRng(seedFromString(`world|${day}|${turnId}`));
+		const wRng = makeRng(seedFromString(`world|${newDay}|${turnId}`));
 		const wr = tickWorld(state, wRng);
 		state = wr.state;
 		for (const r of wr.rumors) {
@@ -259,9 +293,9 @@ export async function runTurn(
 		void logEvent(db, campaignId, turnId, seq++, 'worldsim', 'info', { kind: 'tick', clock_day: state.world_state?.clock_day, rumors: wr.rumors.length });
 	}
 
-	// 4) Отложенные последствия (seeds).
-	const seedRng = makeRng(seedFromString(`seeds|${day}|${state.seeds.length}`));
-	const seedRes = tickSeeds(state, day, seedRng);
+	// 4) Отложенные последствия (seeds) — против текущего (продвинутого) дня.
+	const seedRng = makeRng(seedFromString(`seeds|${newDay}|${state.seeds.length}`));
+	const seedRes = tickSeeds(state, newDay, seedRng);
 	if (seedRes.fired.length) {
 		state = seedRes.state;
 		for (const f of seedRes.fired) {

@@ -33,6 +33,7 @@ npc.spawn{seed_card:{id,name,race,role,character,motivation,appearance}},
 npc.relationship{from,to,axis,delta,notes}, reputation.shift{faction,axis,delta,reason},
 contract.offer{fields:{id,title,objectives,reward,deadline_day,faction}}, contract.update{id,fields},
 contract.close{id,status}, timer.add{label,due_day,type},
+time.advance{scale:мгновение|минуты|часы|полдня|день|дни|сон, days?} (для дороги/ожидания/сна/долгих дел — чтобы шло игровое время; обычный короткий ход не требует),
 combat.start{enemies:[{name,tier:слабый|обычный|опытный|монстр,weapon}]}, combat.end,
 progress.tick{activity:persuade|stealth|craft|cast},
 power.set{state} (если маг), heat.change{delta,reason} (если intrigue), faith.shift{delta,reason} (если faith).
