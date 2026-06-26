@@ -12,6 +12,26 @@ function norm(base: string): string {
 	return (base ?? '').trim().replace(/\/+$/, '');
 }
 
+// --- Токен входа: добавляется в каждый запрос; на 401 — глобальный обработчик. ---
+let authToken = '';
+export function setApiToken(t: string): void {
+	authToken = t ?? '';
+}
+let onUnauthorized: () => void = () => {};
+export function setUnauthorizedHandler(fn: () => void): void {
+	onUnauthorized = fn;
+}
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+	return authToken ? { ...extra, 'X-Auth-Token': authToken } : extra;
+}
+/** Заголовки авторизации для ручных fetch (например, скачивание логов). */
+export function apiAuthHeader(): Record<string, string> {
+	return authHeaders();
+}
+function flag401(status: number): void {
+	if (status === 401) onUnauthorized();
+}
+
 export interface CampaignRow {
 	id: string;
 	name: string;
@@ -43,19 +63,55 @@ async function errBody(r: Response, path: string): Promise<Error> {
 }
 
 async function jget<T>(base: string, path: string): Promise<T> {
-	const r = await fetch(`${norm(base)}${path}`);
-	if (!r.ok) throw await errBody(r, path);
+	const r = await fetch(`${norm(base)}${path}`, { headers: authHeaders() });
+	if (!r.ok) {
+		flag401(r.status);
+		throw await errBody(r, path);
+	}
 	return (await r.json()) as T;
 }
 async function jpost<T>(base: string, path: string, body?: unknown): Promise<T> {
 	const r = await fetch(`${norm(base)}${path}`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: authHeaders({ 'Content-Type': 'application/json' }),
 		...(body ? { body: JSON.stringify(body) } : {})
 	});
-	if (!r.ok) throw await errBody(r, path);
+	if (!r.ok) {
+		flag401(r.status);
+		throw await errBody(r, path);
+	}
 	return (await r.json()) as T;
 }
+
+// --- Авторизация на вход ---
+export const authApi = {
+	status: async (base: string): Promise<{ configured: boolean }> => {
+		const r = await fetch(`${norm(base)}/auth/status`);
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		return (await r.json()) as { configured: boolean };
+	},
+	login: async (base: string, user: string, password: string): Promise<{ token: string; user: string }> => {
+		const r = await fetch(`${norm(base)}/auth/login`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ user, password })
+		});
+		if (!r.ok) throw await errBody(r, '/auth/login');
+		return (await r.json()) as { token: string; user: string };
+	},
+	setup: async (base: string, user: string, password: string): Promise<{ token: string; user: string }> => {
+		const r = await fetch(`${norm(base)}/auth/setup`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ user, password })
+		});
+		if (!r.ok) throw await errBody(r, '/auth/setup');
+		return (await r.json()) as { token: string; user: string };
+	},
+	logout: async (base: string): Promise<void> => {
+		await fetch(`${norm(base)}/auth/logout`, { method: 'POST', headers: authHeaders() }).catch(() => undefined);
+	}
+};
 
 export const api = {
 	health: (base: string) => jget<HealthInfo>(base, '/health'),
@@ -70,7 +126,7 @@ export const api = {
 	snapshots: (base: string, id: string) =>
 		jget<{ snapshots: SnapshotRow[] }>(base, `/campaigns/${id}/snapshots`).then((d) => d.snapshots),
 	remove: (base: string, id: string) =>
-		fetch(`${norm(base)}/campaigns/${id}`, { method: 'DELETE' }).then(() => undefined)
+		fetch(`${norm(base)}/campaigns/${id}`, { method: 'DELETE', headers: authHeaders() }).then(() => undefined)
 };
 
 // --- Админ-конфиг (ключи/модели по ролям; пароль в заголовке) ---
@@ -91,18 +147,24 @@ export interface AdminConfigPatch {
 
 export const adminApi = {
 	get: async (base: string): Promise<AdminConfigView> => {
-		const r = await fetch(`${norm(base)}/admin/config`);
-		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		const r = await fetch(`${norm(base)}/admin/config`, { headers: authHeaders() });
+		if (!r.ok) {
+			flag401(r.status);
+			throw new Error(`HTTP ${r.status}`);
+		}
 		return (await r.json()) as AdminConfigView;
 	},
 	save: async (base: string, patch: AdminConfigPatch): Promise<AdminConfigView> => {
 		const r = await fetch(`${norm(base)}/admin/config`, {
 			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
+			headers: authHeaders({ 'Content-Type': 'application/json' }),
 			body: JSON.stringify(patch)
 		});
 		if (r.status === 503) throw new Error('БД недоступна — не сохранить');
-		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		if (!r.ok) {
+			flag401(r.status);
+			throw new Error(`HTTP ${r.status}`);
+		}
 		return (await r.json()) as AdminConfigView;
 	}
 };
@@ -118,12 +180,13 @@ export interface TurnHandlers {
 
 /** Отправить ход: стрим прозы + system-события + финальное состояние. */
 export async function turn(base: string, campaignId: string, input: string, h: TurnHandlers): Promise<void> {
-	const res = await fetch(`${base}/turn`, {
+	const res = await fetch(`${norm(base)}/turn`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: authHeaders({ 'Content-Type': 'application/json' }),
 		body: JSON.stringify({ campaignId, input })
 	});
 	if (!res.ok || !res.body) {
+		flag401(res.status);
 		h.onError?.(`сервер ответил ${res.status}`);
 		return;
 	}

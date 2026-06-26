@@ -9,9 +9,12 @@
 	import CreationWizard from '$lib/components/CreationWizard.svelte';
 	import ImportWizard from '$lib/components/ImportWizard.svelte';
 	import OnboardingWizard from '$lib/components/OnboardingWizard.svelte';
+	import LoginGate from '$lib/components/LoginGate.svelte';
 	import Ledger from '$lib/components/Ledger.svelte';
 	import { settings, toggleTheme } from '$lib/settings.svelte';
+	import { auth, initAuth, logout } from '$lib/auth.svelte';
 	import { session, sendTurn, createCampaign, openCampaign, saveGame, checkConnection } from '$lib/session.svelte';
+	import { apiAuthHeader } from '$lib/api';
 	import { threadModel, statusFields } from '$lib/status';
 	import type { CreationChoices } from '@rpg/engine';
 
@@ -28,9 +31,22 @@
 
 	onMount(() => {
 		void (async () => {
-			await checkConnection();
-			if (!settings.onboarded) showOnboarding = true;
+			await initAuth();
+			if (auth.authed) {
+				await checkConnection();
+				if (!settings.onboarded) showOnboarding = true;
+			}
 		})();
+	});
+
+	// После входа (в т.ч. первичной настройки) — поднять связь/онбординг.
+	$effect(() => {
+		if (auth.authed && !session.connected) {
+			void (async () => {
+				await checkConnection();
+				if (!settings.onboarded) showOnboarding = true;
+			})();
+		}
 	});
 
 	function addSystem(text: string) {
@@ -88,7 +104,7 @@
 		const base = (settings.serverUrl || '').replace(/\/+$/, '');
 		let server: unknown;
 		try {
-			const res = await fetch(`${base}/logs/export`);
+			const res = await fetch(`${base}/logs/export`, { headers: apiAuthHeader() });
 			server = res.ok ? await res.json() : { error: `HTTP ${res.status}` };
 		} catch (e) {
 			server = { error: (e as Error).message };
@@ -125,6 +141,9 @@
 
 <svelte:head><title>Текстовое НРИ</title></svelte:head>
 
+{#if auth.ready && !auth.authed}
+	<LoginGate />
+{:else if auth.authed}
 <div class="app">
 	<header class="topbar">
 		<button class="icon" onclick={() => (ledgerOpen = !ledgerOpen)} aria-label="Гроссбух">☰</button>
@@ -143,6 +162,7 @@
 		<button class="icon" onclick={() => (showReference = true)} aria-label="Справка по моделям" title="Справка: платные модели на роль Ведущего">💳</button>
 		<button class="icon accent" onclick={toggleTheme} aria-label="Сменить тему" title={settings.theme === 'dark' ? 'Светлая тема (пергамент)' : 'Тёмная тема (тушь)'}>{settings.theme === 'dark' ? '☀' : '☾'}</button>
 		<button class="icon" onclick={() => (showSettings = true)} aria-label="Настройки">⚙</button>
+		<button class="icon" onclick={() => void logout()} aria-label="Выйти" title="Выйти">⎋</button>
 	</div>
 	</header>
 
@@ -196,6 +216,7 @@
 		onload={() => { showOnboarding = false; showCampaigns = true; }}
 		onclose={() => (showOnboarding = false)}
 	/>
+{/if}
 {/if}
 
 <style>

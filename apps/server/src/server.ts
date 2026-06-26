@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { randomBytes } from 'node:crypto';
 import { createCharacter, type CreationChoices, type GameState } from '@rpg/engine';
 import {
 	loadConfig,
@@ -6,7 +7,10 @@ import {
 	applyOverrides,
 	publicConfigView,
 	toModelList,
-	type ConfigOverrides
+	hashPassword,
+	verifyPassword,
+	type ConfigOverrides,
+	type AuthSecret
 } from './config';
 import { Db } from './db';
 import { Campaigns } from './campaigns';
@@ -17,16 +21,29 @@ import { importGame, type ImportDocs } from './import';
 
 const cfg = loadConfig();
 const baseline = snapshotBaseline(cfg); // env-база (до сохранённых переопределений)
-// Конфиг-документ из БД: переопределения ключей/моделей (без пароля — гейта нет).
-let storedConfig: { overrides?: ConfigOverrides } = {};
+// Конфиг-документ из БД: переопределения ключей/моделей + учётка входа.
+let storedConfig: { overrides?: ConfigOverrides; auth?: AuthSecret } = {};
 let overrides: ConfigOverrides = {};
 const db = new Db(cfg);
 const campaigns = new Campaigns(db);
 const rag = new Rag(db, cfg);
 const VERSION = '0.0.0';
 
+// Выданные токены сессий (в памяти; при рестарте сервера нужен повторный вход).
+const sessions = new Set<string>();
+
 async function persistConfig(): Promise<void> {
 	await db.setConfig(storedConfig);
+}
+
+function bearer(req: IncomingMessage): string {
+	const h = req.headers['x-auth-token'];
+	return (Array.isArray(h) ? h[0] : h) ?? '';
+}
+
+/** Защищаемые маршруты (всё API). Статика и /auth/* — открыты. */
+function isProtectedPath(path: string): boolean {
+	return /^\/(campaigns|turn|admin|logs|health)\b/.test(path);
 }
 
 function setCors(req: IncomingMessage, res: ServerResponse): void {
@@ -37,7 +54,7 @@ function setCors(req: IncomingMessage, res: ServerResponse): void {
 		res.setHeader('Vary', 'Origin');
 	}
 	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+	res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Auth-Token');
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -67,6 +84,63 @@ const server = createServer((req, res) => {
 });
 
 async function route(req: IncomingMessage, res: ServerResponse, path: string): Promise<void> {
+	// --- Авторизация на вход (единый логин на весь сайт) ---
+	if (path === '/auth/status') {
+		json(res, 200, { configured: Boolean(storedConfig.auth) });
+		return;
+	}
+	if (req.method === 'POST' && path === '/auth/setup') {
+		if (storedConfig.auth) {
+			json(res, 409, { error: 'учётка уже создана' });
+			return;
+		}
+		if (!(await db.healthy())) {
+			json(res, 503, { error: 'БД недоступна — учётку не сохранить' });
+			return;
+		}
+		const b = await readJson<{ user?: string; password?: string }>(req);
+		const user = (b.user ?? '').trim();
+		const password = (b.password ?? '').toString();
+		if (user.length < 2 || password.length < 4) {
+			json(res, 400, { error: 'логин ≥2 символов, пароль ≥4 символов' });
+			return;
+		}
+		storedConfig.auth = hashPassword(password, user);
+		await persistConfig();
+		const token = randomBytes(24).toString('hex');
+		sessions.add(token);
+		json(res, 200, { token, user });
+		return;
+	}
+	if (req.method === 'POST' && path === '/auth/login') {
+		const b = await readJson<{ user?: string; password?: string }>(req);
+		if (!storedConfig.auth || !verifyPassword((b.user ?? '').toString(), (b.password ?? '').toString(), storedConfig.auth)) {
+			json(res, 401, { error: 'неверный логин или пароль' });
+			return;
+		}
+		const token = randomBytes(24).toString('hex');
+		sessions.add(token);
+		json(res, 200, { token, user: storedConfig.auth.user });
+		return;
+	}
+	if (req.method === 'POST' && path === '/auth/logout') {
+		sessions.delete(bearer(req));
+		json(res, 200, { ok: true });
+		return;
+	}
+
+	// Гейт: всё API — только с валидным токеном (учётка задаётся при первом входе).
+	if (isProtectedPath(path)) {
+		if (!storedConfig.auth) {
+			json(res, 401, { error: 'нужна первичная настройка входа', needsSetup: true });
+			return;
+		}
+		if (!sessions.has(bearer(req))) {
+			json(res, 401, { error: 'требуется вход' });
+			return;
+		}
+	}
+
 	// GET /health
 	if (req.method === 'GET' && path === '/health') {
 		const models: Record<string, { model: string; alternatives?: string[] }> = {};
@@ -272,8 +346,8 @@ async function main(): Promise<void> {
 		console.log('[server] миграции БД применены');
 		try {
 			const raw = await db.getConfig();
-			// Поддержка нового формата { overrides } и старого плоского { keys, models }.
-			if (raw.overrides) storedConfig = { overrides: raw.overrides as ConfigOverrides };
+			// Поддержка нового формата { overrides, auth } и старого плоского { keys, models }.
+			if (raw.overrides || raw.auth) storedConfig = { overrides: raw.overrides as ConfigOverrides, auth: raw.auth as AuthSecret };
 			else if (raw.keys || raw.models) storedConfig = { overrides: raw as ConfigOverrides };
 			overrides = storedConfig.overrides ?? {};
 			applyOverrides(cfg, baseline, overrides);
