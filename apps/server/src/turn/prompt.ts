@@ -3,9 +3,11 @@ import type { ChatMessage, GameState } from '@rpg/engine';
 import { activeModules, buildNpcContext } from '@rpg/engine';
 import { statusFields } from './status';
 import { heroSecretTokens, heroHiddenTraits } from './leak';
+import type { RuleInjector } from '../rules';
 
 const HISTORY_LIMIT = 10;
 
+// Резервное ядро Слоя A — используется, только если правила ещё не загружены из БД (см. rules.ts).
 const PHILOSOPHY = `Ты — Мастер-рассказчик одиночной текстовой ролевой игры в тёмном эпическом фэнтези.
 Веди игру на русском, атмосферной прозой через пять чувств.
 
@@ -89,13 +91,19 @@ export function buildNarratorMessages(
 	state: GameState,
 	input: string,
 	retrieved: string[] = [],
-	outcomes: string[] = []
+	outcomes: string[] = [],
+	rules?: RuleInjector
 ): ChatMessage[] {
 	const outcomeBlock = outcomes.length
 		? `\n\nИСХОД ДЕЙСТВИЯ ОТ ДВИЖКА (опиши именно это, НЕ придумывай иной результат, не называй числа/секунды):\n${outcomes.map((o) => `- ${o}`).join('\n')}`
 		: '';
+	// Слой A — из хранимых правил (master/world/progression); фоллбэк — на резервную константу.
+	const layerA = rules?.layerA().trim() || PHILOSOPHY;
+	// Слой B — триггерные выдержки (магия/религия) только когда релевантны сцене.
+	const excerpts = rules?.narratorExcerpts(state, input) ?? [];
+	const layerB = excerpts.length ? `\n\nСПРАВКА ПО МИРУ (учитывай в этой сцене):\n${excerpts.join('\n\n')}` : '';
 	const messages: ChatMessage[] = [
-		{ role: 'system', content: `${PHILOSOPHY}\n\n${OPS_PROTOCOL}\n\n${stateContext(state, retrieved)}${outcomeBlock}` }
+		{ role: 'system', content: `${layerA}\n\n${OPS_PROTOCOL}\n\n${stateContext(state, retrieved)}${layerB}${outcomeBlock}` }
 	];
 	const recent = (state.transcript ?? []).filter((e) => e.speaker !== 'system').slice(-HISTORY_LIMIT);
 	for (const e of recent) messages.push({ role: e.speaker === 'player' ? 'user' : 'assistant', content: e.text });

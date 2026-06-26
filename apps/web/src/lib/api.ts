@@ -169,6 +169,33 @@ export const adminApi = {
 	}
 };
 
+// --- Правила мира (загрузка/правка/версии/откат; горячее применение на сервере) ---
+
+export interface RuleView {
+	slug: string;
+	title: string;
+	layer: string;
+	hint: string;
+	full_text: string;
+	prompt_core: string;
+	version: number;
+	updated_at: string | null;
+}
+export interface RuleVersionRow {
+	version: number;
+	created_at: string;
+}
+
+export const rulesApi = {
+	list: (base: string) => jget<{ rules: RuleView[] }>(base, '/admin/rules').then((d) => d.rules),
+	save: (base: string, slug: string, full_text: string, prompt_core: string) =>
+		jpost<{ rule: RuleView }>(base, `/admin/rules/${slug}`, { full_text, prompt_core }).then((d) => d.rule),
+	versions: (base: string, slug: string) =>
+		jget<{ versions: RuleVersionRow[] }>(base, `/admin/rules/${slug}/versions`).then((d) => d.versions),
+	restore: (base: string, slug: string, version: number) =>
+		jpost<{ rule: RuleView }>(base, `/admin/rules/${slug}/restore`, { version }).then((d) => d.rule)
+};
+
 // --- Ход (SSE) ---
 
 export interface TurnHandlers {

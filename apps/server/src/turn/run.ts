@@ -19,6 +19,7 @@ import {
 import type { ServerConfig } from '../config';
 import type { Db } from '../db';
 import type { Campaigns } from '../campaigns';
+import type { RuleInjector } from '../rules';
 import { streamCompletion, complete } from '../openrouter';
 import type { Rag } from '../rag';
 import { buildNarratorMessages } from './prompt';
@@ -64,6 +65,7 @@ export async function runTurn(
 	db: Db,
 	campaigns: Campaigns,
 	rag: Rag,
+	rules: RuleInjector,
 	campaignId: string,
 	input: string,
 	send: Send
@@ -102,7 +104,14 @@ export async function runTurn(
 	const factsBefore = state.facts.length;
 	const npcBefore = state.npc.length;
 	const preferFallback = isDarkScene(input, state.session.current_moment);
-	const messages = buildNarratorMessages(state, input, retrieved, outcomes);
+	const messages = buildNarratorMessages(state, input, retrieved, outcomes, rules);
+	// Лог состава промпта (проверка инъекции правил, ТЗ §22): размер + сработавшие триггеры Слоя B.
+	const sysContent = messages[0]?.content ?? '';
+	void logEvent(db, campaignId, turnId, seq++, 'prompt_built', 'info', {
+		systemChars: sysContent.length,
+		layerB: sysContent.includes('СПРАВКА ПО МИРУ'),
+		retrieved: retrieved.length
+	});
 	let prose = '';
 	let model: string | undefined;
 	let usedFallback = false;
@@ -168,7 +177,7 @@ export async function runTurn(
 	}
 	if (leakReason) {
 		try {
-			const fixMsgs = buildNarratorMessages(state, input, retrieved, outcomes);
+			const fixMsgs = buildNarratorMessages(state, input, retrieved, outcomes, rules);
 			fixMsgs.push({
 				role: 'system',
 				content: `КРИТИЧНО (защита тайн героя, баг №3): перепиши сцену так, чтобы NPC, не знающие героя, НЕ раскрывали и НЕ намекали на: ${[...secretTokens, ...heroHiddenTraits(state)].join('; ')}. Сохрани события, тон и факты. Верни ТОЛЬКО прозу, без блока ops.`
@@ -240,7 +249,7 @@ export async function runTurn(
 		const arcRng = makeRng(seedFromString(`arc|${state.arcs.length}|${day}`));
 		const arc = pickNextArc(state.arcs, arcRng);
 		beginArc(state, arc);
-		const hook = await composeHook(cfg, arc, state);
+		const hook = await composeHook(cfg, arc, state, rules);
 		const text = `🎬 Новый поворот на горизонте: ${hook}`;
 		state.transcript!.push({ speaker: 'system', text });
 		send({ type: 'system', text });

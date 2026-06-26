@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { settings, saveSettings } from '$lib/settings.svelte';
-	import { api, adminApi, type HealthInfo, type AdminConfigView, type AdminConfigPatch } from '$lib/api';
+	import { api, adminApi, rulesApi, type HealthInfo, type AdminConfigView, type AdminConfigPatch, type RuleView, type RuleVersionRow } from '$lib/api';
 
 	interface Props {
 		onclose: () => void;
@@ -112,6 +112,81 @@
 			adminErr = (e as Error).message;
 		} finally {
 			adminBusy = false;
+		}
+	}
+
+	// --- Правила мира (загрузка/правка/версии из .md; горячее применение) ---
+	let rulesOpen = $state(false);
+	let rulesList = $state<RuleView[] | null>(null);
+	let rulesErr = $state('');
+	let rulesBusy = $state(false);
+	let openSlug = $state(''); // какой файл раскрыт для правки
+	let editFull = $state('');
+	let editCore = $state('');
+	let editVersions = $state<RuleVersionRow[]>([]);
+	let editMsg = $state('');
+
+	async function rulesToggle() {
+		rulesOpen = !rulesOpen;
+		if (rulesOpen && !rulesList) await rulesLoad();
+	}
+	async function rulesLoad() {
+		rulesErr = '';
+		rulesBusy = true;
+		try {
+			rulesList = await rulesApi.list(settings.serverUrl);
+		} catch (e) {
+			rulesErr = (e as Error).message;
+		} finally {
+			rulesBusy = false;
+		}
+	}
+	async function openRule(r: RuleView) {
+		if (openSlug === r.slug) {
+			openSlug = '';
+			return;
+		}
+		openSlug = r.slug;
+		editFull = r.full_text;
+		editCore = r.prompt_core;
+		editMsg = '';
+		editVersions = [];
+		try {
+			editVersions = await rulesApi.versions(settings.serverUrl, r.slug);
+		} catch {
+			/* версии не критичны */
+		}
+	}
+	async function saveRule(slug: string) {
+		rulesBusy = true;
+		rulesErr = '';
+		editMsg = '';
+		try {
+			const updated = await rulesApi.save(settings.serverUrl, slug, editFull, editCore);
+			rulesList = (rulesList ?? []).map((x) => (x.slug === slug ? updated : x));
+			editMsg = `Сохранено (версия ${updated.version}). Применится со следующего хода.`;
+			editVersions = await rulesApi.versions(settings.serverUrl, slug);
+		} catch (e) {
+			rulesErr = (e as Error).message;
+		} finally {
+			rulesBusy = false;
+		}
+	}
+	async function restoreRule(slug: string, version: number) {
+		rulesBusy = true;
+		rulesErr = '';
+		editMsg = '';
+		try {
+			const updated = await rulesApi.restore(settings.serverUrl, slug, version);
+			rulesList = (rulesList ?? []).map((x) => (x.slug === slug ? updated : x));
+			editFull = updated.full_text;
+			editCore = updated.prompt_core;
+			editMsg = `Откат к версии ${version} → новая версия ${updated.version}.`;
+			editVersions = await rulesApi.versions(settings.serverUrl, slug);
+		} catch (e) {
+			rulesErr = (e as Error).message;
+		} finally {
+			rulesBusy = false;
 		}
 	}
 </script>
@@ -229,6 +304,55 @@
 		{/if}
 	</div>
 
+	<!-- Правила мира: загрузка/правка .md, версии, горячее применение -->
+	<div class="admin">
+		<button class="admin-toggle" onclick={rulesToggle}>
+			<span>{rulesOpen ? '▾' : '▸'} Правила мира — загрузка и правка</span>
+		</button>
+		{#if rulesOpen}
+			<p class="hint">
+				Поведением Ведущего управляют эти файлы (без пересборки). <b>Полный текст</b> — канон (источник истины, банк завязок Режиссёру). <b>Ядро для промпта</b> — компактная выжимка, что идёт в Мастера каждый ход (Слой A) или по триггеру (Слой B). Пустое ядро — выводится из полного текста автоматически.
+			</p>
+			{#if !rulesList}
+				<p class="hint">{rulesBusy ? 'Загрузка с сервера…' : 'Не удалось загрузить правила.'}</p>
+				{#if rulesErr}<span class="err mono">✕ {rulesErr}</span> <button class="retry" onclick={rulesLoad}>Повторить</button>{/if}
+			{:else}
+				{#each rulesList as r (r.slug)}
+					<div class="rule">
+						<button class="rule-head" onclick={() => openRule(r)}>
+							<span class="rule-name">{openSlug === r.slug ? '▾' : '▸'} {r.title}</span>
+							<span class="rule-meta mono">Слой {r.layer} · v{r.version}</span>
+						</button>
+						{#if openSlug === r.slug}
+							<p class="hint rule-hint">{r.hint}</p>
+							<div class="model-block">
+								<span class="ml mono">Ядро для промпта (выжимка в Мастера)</span>
+								<textarea class="mono" rows="6" bind:value={editCore} placeholder="пусто = вывести из полного текста"></textarea>
+							</div>
+							<div class="model-block">
+								<span class="ml mono">Полный текст (.md, канон)</span>
+								<textarea class="mono" rows="10" bind:value={editFull} placeholder="полный markdown-текст правила"></textarea>
+							</div>
+							<div class="admin-actions">
+								<button class="save" onclick={() => saveRule(r.slug)} disabled={rulesBusy}>{rulesBusy ? 'Сохраняю…' : 'Сохранить и применить'}</button>
+								{#if editMsg}<span class="ok mono">✓ {editMsg}</span>{/if}
+								{#if rulesErr}<span class="err mono">✕ {rulesErr}</span>{/if}
+							</div>
+							{#if editVersions.length > 1}
+								<div class="versions">
+									<span class="ml mono">История:</span>
+									{#each editVersions as v (v.version)}
+										<button class="ver" title={new Date(v.created_at).toLocaleString('ru-RU')} disabled={rulesBusy || v.version === r.version} onclick={() => restoreRule(r.slug, v.version)}>v{v.version}</button>
+									{/each}
+								</div>
+							{/if}
+						{/if}
+					</div>
+				{/each}
+			{/if}
+		{/if}
+	</div>
+
 	<p class="note">
 		Ключи и модели задаются здесь и хранятся в БД сервера — файл <code class="mono">.env</code> не нужен.
 		Клиент тонкий: секреты в браузере не хранятся. Доступ к серверу ограничивайте сетью (Tailscale)
@@ -275,4 +399,17 @@
 	.clear { background: none; border: 1px solid var(--border); color: var(--danger); border-radius: 6px; padding: .2rem .5rem; flex-shrink: 0; }
 	.admin-actions { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin-top: .6rem; }
 	.save { background: var(--accent); color: var(--on-accent); border: none; border-radius: 6px; padding: .5rem 1rem; }
+
+	.rule { border: 1px solid var(--border); border-radius: 6px; margin-bottom: .5rem; overflow: hidden; }
+	.rule-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: .6rem; background: var(--field, var(--surface-raised)); border: none; color: var(--text); padding: .5rem .7rem; text-align: left; }
+	.rule-name { font-size: .86em; }
+	.rule-meta { font-size: .66rem; color: var(--text-dim); flex-shrink: 0; }
+	.rule-hint { margin: .5rem .7rem; }
+	.rule .model-block { margin: .5rem .7rem; }
+	.rule .model-block textarea { width: 100%; resize: vertical; background: var(--field, var(--surface-raised)); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .4rem .55rem; font-size: .74em; line-height: 1.5; }
+	.rule .admin-actions { margin: .5rem .7rem; }
+	.versions { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; margin: .2rem .7rem .6rem; }
+	.ver { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; font-size: .68rem; padding: .1rem .45rem; }
+	.ver:not(:disabled):hover { color: var(--accent); border-color: var(--accent); }
+	.ver:disabled { opacity: .5; }
 </style>

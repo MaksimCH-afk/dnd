@@ -18,6 +18,7 @@ import { Rag } from './rag';
 import { runTurn, type TurnEvent } from './turn/run';
 import { serveStatic } from './static';
 import { importGame, type ImportDocs } from './import';
+import { RulesStore, validRuleSlug } from './rules';
 
 const cfg = loadConfig();
 const baseline = snapshotBaseline(cfg); // env-база (до сохранённых переопределений)
@@ -27,6 +28,7 @@ let overrides: ConfigOverrides = {};
 const db = new Db(cfg);
 const campaigns = new Campaigns(db);
 const rag = new Rag(db, cfg);
+const rules = new RulesStore(db);
 const VERSION = '0.0.0';
 
 // Выданные токены сессий (в памяти; при рестарте сервера нужен повторный вход).
@@ -43,7 +45,7 @@ function bearer(req: IncomingMessage): string {
 
 /** Защищаемые маршруты (всё API). Статика и /auth/* — открыты. */
 function isProtectedPath(path: string): boolean {
-	return /^\/(campaigns|turn|admin|logs|health)\b/.test(path);
+	return /^\/(campaigns|turn|admin|logs|health|rules)\b/.test(path);
 }
 
 function setCors(req: IncomingMessage, res: ServerResponse): void {
@@ -253,7 +255,7 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		});
 		const send = (e: TurnEvent) => res.write(`data: ${JSON.stringify(e)}\n\n`);
 		try {
-			await runTurn(cfg, db, campaigns, rag, body.campaignId, body.input, send);
+			await runTurn(cfg, db, campaigns, rag, rules, body.campaignId, body.input, send);
 		} catch (e) {
 			send({ type: 'error', message: (e as Error).message, code: 'internal' });
 		} finally {
@@ -294,6 +296,51 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 			await persistConfig();
 			applyOverrides(cfg, baseline, overrides);
 			json(res, 200, publicConfigView(cfg, overrides));
+			return;
+		}
+	}
+
+	// --- Правила мира («Правила мира» в админке): загрузка/правка/версии/откат, горячее применение ---
+	if (path === '/admin/rules' && req.method === 'GET') {
+		json(res, 200, { rules: rules.list() });
+		return;
+	}
+	const rm = path.match(/^\/admin\/rules\/([a-z][a-z0-9_-]{1,40})(\/(versions|restore))?$/);
+	if (rm) {
+		const slug = rm[1]!;
+		const sub = rm[3];
+		if (!validRuleSlug(slug)) {
+			json(res, 400, { error: 'недопустимый slug правила' });
+			return;
+		}
+		if (req.method === 'GET' && sub === 'versions') {
+			json(res, 200, { versions: await rules.versions(slug) });
+			return;
+		}
+		if (req.method === 'POST' && sub === 'restore') {
+			if (!(await db.healthy())) {
+				json(res, 503, { error: 'БД недоступна — откат невозможен' });
+				return;
+			}
+			const b = await readJson<{ version?: number }>(req);
+			const row = await rules.restore(slug, Number(b.version));
+			if (!row) {
+				json(res, 404, { error: 'версия не найдена' });
+				return;
+			}
+			json(res, 200, { rule: row });
+			return;
+		}
+		if ((req.method === 'PUT' || req.method === 'POST') && !sub) {
+			if (!(await db.healthy())) {
+				json(res, 503, { error: 'БД недоступна — сохранить правило нельзя' });
+				return;
+			}
+			const b = await readJson<{ full_text?: string; prompt_core?: string }>(req);
+			const fullText = typeof b.full_text === 'string' ? b.full_text : '';
+			const promptCore = typeof b.prompt_core === 'string' ? b.prompt_core : '';
+			const row = await rules.save(slug, fullText, promptCore);
+			json(res, 200, { rule: row });
 			return;
 		}
 	}
@@ -356,6 +403,11 @@ async function main(): Promise<void> {
 			if (ovK || ovM) console.log(`[server] конфиг из БД: ключей ${ovK}, моделей ${ovM}`);
 		} catch (e) {
 			console.error('[server] не удалось загрузить конфиг из БД:', (e as Error).message);
+		}
+		try {
+			await rules.init();
+		} catch (e) {
+			console.error('[server] не удалось загрузить правила из БД:', (e as Error).message);
 		}
 	} catch (e) {
 		console.error('[server] ВНИМАНИЕ: БД недоступна, миграции не применены:', (e as Error).message);
