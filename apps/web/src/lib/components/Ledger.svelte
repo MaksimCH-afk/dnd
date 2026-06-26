@@ -6,12 +6,22 @@
 		state: GameState;
 		/** id предметов, изменённых последним ходом (для подсветки дельт). */
 		highlight?: Set<string>;
+		/** Выбор специализации игроком (слой 3 прогрессии). */
+		onspec?: (choice: string) => void;
 	}
-	let { state, highlight }: Props = $props();
+	let { state, highlight, onspec }: Props = $props();
 
 	const core = $derived(state.character.core);
 	const mods = $derived(state.character.modules);
 	const fields = $derived(statusFields(state));
+
+	// Открытые предложения специализаций (слой 3 прогрессии) → варианты на выбор.
+	const PREFIX = 'Специализация на выбор:';
+	const specOffers = $derived(
+		(state.session.open_threads ?? [])
+			.filter((t) => t.startsWith(PREFIX))
+			.map((t) => ({ label: t, options: t.slice(PREFIX.length).split('/').map((s) => s.trim()).filter(Boolean) }))
+	);
 
 	const slots: { key: InventoryItem['slot']; title: string }[] = [
 		{ key: 'надето', title: 'Надето' },
@@ -46,6 +56,21 @@
 				{#each core.features as f (f)}<li>{f}</li>{/each}
 			</ul>
 		{/if}
+		{#if core.specializations.length}
+			<ul class="tags accent">
+				{#each core.specializations as s (s)}<li>★ {s}</li>{/each}
+			</ul>
+		{/if}
+		{#each specOffers as offer (offer.label)}
+			<div class="spec-offer">
+				<span class="spec-title mono">Выбор специализации</span>
+				<div class="spec-buttons">
+					{#each offer.options as opt (opt)}
+						<button onclick={() => onspec?.(opt)}>{opt}</button>
+					{/each}
+				</div>
+			</div>
+		{/each}
 	</section>
 
 	<!-- Активные модули (адаптивно) -->
@@ -279,6 +304,41 @@
 	.tags.warn li {
 		color: var(--danger);
 		border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+	}
+	.tags.accent li {
+		color: var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+	}
+	.spec-offer {
+		margin-top: 0.8rem;
+		padding: 0.6rem 0.7rem;
+		border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+	}
+	.spec-title {
+		display: block;
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		color: var(--accent);
+		margin-bottom: 0.4rem;
+	}
+	.spec-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+	.spec-buttons button {
+		background: var(--accent);
+		color: var(--on-accent);
+		border: none;
+		border-radius: 6px;
+		padding: 0.35rem 0.7rem;
+		font-size: 0.8em;
+	}
+	.spec-buttons button:disabled {
+		opacity: 0.5;
 	}
 	.line {
 		margin: 0.2rem 0;

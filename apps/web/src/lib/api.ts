@@ -127,6 +127,8 @@ export const api = {
 		jget<{ snapshots: SnapshotRow[] }>(base, `/campaigns/${id}/snapshots`).then((d) => d.snapshots),
 	restore: (base: string, id: string, snapshotId: number) =>
 		jpost<{ state: GameState }>(base, `/campaigns/${id}/restore`, { snapshotId }).then((d) => d.state),
+	chooseSpec: (base: string, id: string, choice: string) =>
+		jpost<{ state: GameState }>(base, `/campaigns/${id}/spec`, { choice }).then((d) => d.state),
 	remove: (base: string, id: string) =>
 		fetch(`${norm(base)}/campaigns/${id}`, { method: 'DELETE', headers: authHeaders() }).then(() => undefined)
 };

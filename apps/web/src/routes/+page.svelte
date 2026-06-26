@@ -15,7 +15,7 @@
 	import AskPanel from '$lib/components/AskPanel.svelte';
 	import { settings, toggleTheme } from '$lib/settings.svelte';
 	import { auth, initAuth, logout } from '$lib/auth.svelte';
-	import { session, sendTurn, createCampaign, openCampaign, saveGame, checkConnection } from '$lib/session.svelte';
+	import { session, sendTurn, createCampaign, openCampaign, saveGame, checkConnection, chooseSpecialization } from '$lib/session.svelte';
 	import { apiAuthHeader } from '$lib/api';
 	import { threadModel, statusFields } from '$lib/status';
 	import type { CreationChoices } from '@rpg/engine';
@@ -137,6 +137,15 @@
 		setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 	}
 
+	async function chooseSpec(choice: string) {
+		try {
+			await chooseSpecialization(choice);
+			addSystem(`★ Выбрана специализация: ${choice}.`);
+		} catch (e) {
+			addSystem(`⚠ Не удалось выбрать специализацию: ${(e as Error).message}`);
+		}
+	}
+
 	async function onCreated(choices: CreationChoices) {
 		showCreation = false;
 		try {
@@ -196,7 +205,7 @@
 
 		<aside class="ledger" hidden={!ledgerOpen}>
 			{#if session.state}
-				<Ledger state={session.state} />
+				<Ledger state={session.state} onspec={chooseSpec} />
 				{#if thread.label}
 					<div class="thread-legend mono"><span>нить состояния</span><small>{thread.label}</small></div>
 				{/if}

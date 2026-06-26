@@ -507,6 +507,23 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 				break;
 			}
 
+			case 'specialization.select': {
+				const choice = String(op.choice ?? '').trim();
+				if (!choice) {
+					reject(op, 'не указан выбор специализации');
+					break;
+				}
+				if (!state.character.core.specializations.includes(choice)) {
+					state.character.core.specializations.push(choice);
+				}
+				// Снять связанные предложения из open_threads (выбор сделан — слой 3 прогрессии).
+				state.session.open_threads = state.session.open_threads.filter(
+					(t) => !(t.startsWith('Специализация на выбор') && t.includes(choice))
+				);
+				ok(op, `специализация выбрана: ${choice}`);
+				break;
+			}
+
 			default:
 				// Не достижимо: все варианты Op обработаны выше.
 				reject(op, `неизвестная операция`);

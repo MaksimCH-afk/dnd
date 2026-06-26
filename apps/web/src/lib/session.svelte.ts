@@ -124,6 +124,13 @@ export async function sendTurn(input: string): Promise<void> {
 	}
 }
 
+/** Выбрать специализацию из предложенных (слой 3 прогрессии). */
+export async function chooseSpecialization(choice: string): Promise<void> {
+	if (!session.campaignId) return;
+	const state = await api.chooseSpec(settings.serverUrl, session.campaignId, choice);
+	session.state = state;
+}
+
 export async function saveGame(label?: string): Promise<string> {
 	if (!session.campaignId || !session.state) return 'игра не начата';
 	await api.save(settings.serverUrl, session.campaignId, session.state, label);

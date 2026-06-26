@@ -153,3 +153,15 @@ test('каст тратит выносливость (magic.md): progress.tick a
 	const r2 = applyOps(state, [{ op: 'progress.tick', activity: 'persuade' }], ctx);
 	assert.equal(r2.state.character.core.stamina.cur, st0, 'persuade не тратит выносливость');
 });
+
+test('specialization.select: выбор применяется и снимает предложение', () => {
+	let state = initialState();
+	state = applyOps(state, [{ op: 'specialization.offer', options: ['Живучий', 'Боевая ярость', 'Хладнокровие'] }], ctx).state;
+	assert.ok(state.session.open_threads.some((t) => t.startsWith('Специализация на выбор')));
+	const r = applyOps(state, [{ op: 'specialization.select', choice: 'Хладнокровие' }], ctx);
+	assert.equal(r.rejected.length, 0);
+	assert.ok(r.state.character.core.specializations.includes('Хладнокровие'));
+	assert.ok(!r.state.session.open_threads.some((t) => t.startsWith('Специализация на выбор')), 'предложение снято');
+	// пустой выбор отклоняется
+	assert.equal(applyOps(state, [{ op: 'specialization.select', choice: '  ' }], ctx).rejected.length, 1);
+});

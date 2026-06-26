@@ -158,6 +158,10 @@ export interface SpecializationOfferOp {
 	op: 'specialization.offer';
 	options: string[];
 }
+export interface SpecializationSelectOp {
+	op: 'specialization.select';
+	choice: string;
+}
 
 // --- Модуль-зависимые операции (отклоняются без активного модуля) ---
 
@@ -211,6 +215,7 @@ export type Op =
 	| FeatureGrantOp
 	| ProgressTickOp
 	| SpecializationOfferOp
+	| SpecializationSelectOp
 	| PowerSetOp
 	| DarkcostAdvanceOp
 	| HeatChangeOp

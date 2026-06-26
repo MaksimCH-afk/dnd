@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { createCharacter, type CreationChoices, type GameState } from '@rpg/engine';
+import { createCharacter, applyOps, type CreationChoices, type GameState } from '@rpg/engine';
 import {
 	loadConfig,
 	snapshotBaseline,
@@ -377,10 +377,28 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		}
 	}
 
-	const m = path.match(/^\/campaigns\/([\w-]+)(\/(load|save|snapshots|restore))?$/);
+	const m = path.match(/^\/campaigns\/([\w-]+)(\/(load|save|snapshots|restore|spec))?$/);
 	if (m) {
 		const id = m[1]!;
 		const sub = m[3];
+		// Выбор специализации игроком (слой 3 прогрессии, §9.11) — прямой ход игрока, не нарратора.
+		if (req.method === 'POST' && sub === 'spec') {
+			const body = await readJson<{ choice?: string }>(req);
+			const choice = (body.choice ?? '').trim();
+			if (!choice) {
+				json(res, 400, { error: 'нужен choice' });
+				return;
+			}
+			const state = await campaigns.load(id);
+			if (!state) {
+				json(res, 404, { error: 'кампания не найдена' });
+				return;
+			}
+			const result = applyOps(state, [{ op: 'specialization.select', choice }], { day: state.session.day });
+			await campaigns.save(id, result.state);
+			json(res, 200, { state: result.state });
+			return;
+		}
 		if (req.method === 'POST' && sub === 'restore') {
 			const body = await readJson<{ snapshotId?: number }>(req);
 			if (body.snapshotId == null) {
