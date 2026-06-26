@@ -6,11 +6,15 @@
 
 import type { GameState, ModuleName } from '@rpg/engine';
 
+/** MP → монеты (1 GP=10 SP=100 MP): золото / серебро / медь. */
+export function moneyParts(mp: number): { gp: number; sp: number; mp: number } {
+	const abs = Math.max(0, Math.floor(mp));
+	return { gp: Math.floor(abs / 100), sp: Math.floor((abs % 100) / 10), mp: abs % 10 };
+}
+
 /** MP → компактная строка «X GP Y SP Z MP» (1 GP=10 SP=100 MP). */
 export function formatMoney(mp: number): string {
-	const gp = Math.floor(mp / 100);
-	const sp = Math.floor((mp % 100) / 10);
-	const m = mp % 10;
+	const { gp, sp, mp: m } = moneyParts(mp);
 	const parts: string[] = [];
 	if (gp) parts.push(`${gp} GP`);
 	if (sp) parts.push(`${sp} SP`);

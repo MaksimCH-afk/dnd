@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { GameState, InventoryItem } from '@rpg/engine';
-	import { statusFields, formatMoney } from '$lib/status';
+	import { statusFields } from '$lib/status';
+	import Coins from './Coins.svelte';
 
 	interface Props {
 		state: GameState;
@@ -42,7 +43,11 @@
 			{#each fields as f (f.label)}
 				<div class="stat">
 					<span class="k">{f.label}</span>
-					<span class="v" class:mono={f.mono}>{f.value}</span>
+					{#if f.label === 'Капитал'}
+						<span class="v"><Coins mp={state.inventory.capital_mp} size="sm" /></span>
+					{:else}
+						<span class="v" class:mono={f.mono}>{f.value}</span>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -224,13 +229,13 @@
 	<!-- Капитал -->
 	<section>
 		<h4>Капитал</h4>
-		<p class="capital mono">{formatMoney(state.inventory.capital_mp)}</p>
+		<div class="capital"><Coins mp={state.inventory.capital_mp} size="lg" /></div>
 		{#if state.inventory.journal.length}
 			<ul class="journal mono">
 				{#each state.inventory.journal.slice(-4).reverse() as j (j.day + j.reason + j.delta)}
 					<li>
-						<span class:plus={j.delta > 0} class:minus={j.delta < 0}>
-							{j.delta > 0 ? '+' : ''}{formatMoney(Math.abs(j.delta))}
+						<span class="delta" class:plus={j.delta > 0} class:minus={j.delta < 0}>
+							<span class="sign">{j.delta > 0 ? '+' : '−'}</span><Coins mp={Math.abs(j.delta)} size="sm" />
 						</span>
 						<span class="reason">{j.reason}</span>
 					</li>
@@ -461,26 +466,35 @@
 		padding: 0.1rem 0;
 	}
 	.capital {
-		font-size: 1.05em;
-		color: var(--vellum-100);
-		margin: 0 0 0.5rem;
+		margin: 0 0 0.6rem;
 	}
 	.journal {
 		list-style: none;
 		padding: 0;
 		margin: 0;
-		font-size: 0.76em;
+		font-size: 0.8em;
 	}
 	.journal li {
 		display: flex;
 		gap: 0.5rem;
+		align-items: center;
 		color: var(--text-dim);
-		padding: 0.1rem 0;
+		padding: 0.12rem 0;
 	}
-	.journal .plus {
+	.journal .delta {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		flex-shrink: 0;
+	}
+	.journal .delta .sign {
+		font-family: var(--font-mono, monospace);
+		font-weight: 700;
+	}
+	.journal .plus .sign {
 		color: var(--accent);
 	}
-	.journal .minus {
+	.journal .minus .sign {
 		color: var(--danger);
 	}
 	.journal .reason {
