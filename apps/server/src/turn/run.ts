@@ -11,6 +11,7 @@ import {
 	resolveExchange,
 	pickNextArc,
 	beginArc,
+	npcRecognizesHeroSecret,
 	type CombatStyle,
 	type GameState,
 	type Op
@@ -24,6 +25,7 @@ import { buildNarratorMessages } from './prompt';
 import { extractOps, isDarkScene } from './ops-extract';
 import { statusFields, threadModel } from './status';
 import { composeHook } from './director';
+import { heroSecretTokens, heroHiddenTraits, sceneHasBlindNpc, heroHasSecret, scanLeakTokens } from './leak';
 
 export type TurnEvent =
 	| { type: 'delta'; text: string }
@@ -127,12 +129,63 @@ export async function runTurn(
 	}
 	const res = applyOps(state, ops, { day });
 	state = res.state;
-	state.transcript = [...(state.transcript ?? []), { speaker: 'master', text: master, ...(model ? { model } : {}) }];
+	const masterEntry: { speaker: 'master'; text: string; model?: string } = { speaker: 'master', text: master, ...(model ? { model } : {}) };
+	state.transcript = [...(state.transcript ?? []), masterEntry];
 	void logEvent(db, campaignId, turnId, seq++, 'applied_ops', 'info', { applied: res.applied.map((o) => o.op), rejected: res.rejected });
 	if (res.rejected.length) {
 		const text = `Движок отклонил ${res.rejected.length} оп.: ${res.rejected.map((r) => r.reason).join('; ')}`;
 		state.transcript.push({ speaker: 'system', text });
 		send({ type: 'system', text });
+	}
+
+	// 3a) Защита от утечки тайн героя в прозе NPC (баг №3): скан токенов + условный валидатор.
+	const st = state; // не-null ссылка для замыканий ниже
+	const secretTokens = heroSecretTokens(st);
+	let leakReason = '';
+	const tokenLeak = scanLeakTokens(master, secretTokens);
+	if (tokenLeak.length) leakReason = `токены: ${tokenLeak.join(', ')}`;
+	// Уровень 2 — только риск-ход (в сцене есть NPC, не знающий тайн, и тайны есть) и дешёвой моделью.
+	if (!leakReason && sceneHasBlindNpc(st) && heroHasSecret(st)) {
+		const blind = st.session.npcs_in_scene
+			.filter((id) => !npcRecognizesHeroSecret(st, id))
+			.map((id) => st.npc.find((n) => n.id === id)?.core.name)
+			.filter(Boolean);
+		const mustNot = [...secretTokens, ...heroHiddenTraits(st)];
+		const vsys = 'Ты — проверяющий утечки. Верни СТРОГИЙ JSON {"leak":true|false,"detail":"кратко"}. Только JSON.';
+		const vusr = `NPC, не знающие тайн героя: ${blind.join(', ') || '—'}.\nЭти тайны они НЕ должны раскрывать или намекать на них: ${mustNot.join('; ')}.\nТекст сцены:\n${master}\n\nЕсть ли в словах/намёках этих NPC утечка любой тайны (дословно или пересказом)?`;
+		try {
+			const vraw = await complete(cfg, 'validator', [{ role: 'system', content: vsys }, { role: 'user', content: vusr }], { temperature: 0, maxTokens: 200 });
+			const a = vraw.indexOf('{');
+			const b = vraw.lastIndexOf('}');
+			if (a >= 0 && b > a) {
+				const v = JSON.parse(vraw.slice(a, b + 1)) as { leak?: boolean; detail?: string };
+				if (v.leak) leakReason = `валидатор: ${String(v.detail ?? 'утечка тайны').slice(0, 160)}`;
+			}
+			void logEvent(db, campaignId, turnId, seq++, 'llm_call', 'info', { role: 'validator', leak: Boolean(leakReason) });
+		} catch {
+			/* валидатор не критичен */
+		}
+	}
+	if (leakReason) {
+		try {
+			const fixMsgs = buildNarratorMessages(state, input, retrieved, outcomes);
+			fixMsgs.push({
+				role: 'system',
+				content: `КРИТИЧНО (защита тайн героя, баг №3): перепиши сцену так, чтобы NPC, не знающие героя, НЕ раскрывали и НЕ намекали на: ${[...secretTokens, ...heroHiddenTraits(state)].join('; ')}. Сохрани события, тон и факты. Верни ТОЛЬКО прозу, без блока ops.`
+			});
+			const fixed = await complete(cfg, 'narrator', fixMsgs, { preferFallback });
+			const cleanFixed = extractOps(fixed).clean || fixed;
+			if (cleanFixed.trim()) {
+				master = cleanFixed.trim();
+				masterEntry.text = master;
+			}
+			const note = '⚠ Мастер переписал сцену: NPC не должен был раскрыть тайну героя.';
+			state.transcript!.push({ speaker: 'system', text: note });
+			send({ type: 'system', text: note });
+			void logEvent(db, campaignId, turnId, seq++, 'leak_fixed', 'warn', { reason: leakReason });
+		} catch {
+			void logEvent(db, campaignId, turnId, seq++, 'leak_detected', 'warn', { reason: leakReason, fixed: false });
+		}
 	}
 
 	// 3b) NPC-спавн-хелпер: дорисовать карточки новых NPC, если нарратор ввёл их «тонко».

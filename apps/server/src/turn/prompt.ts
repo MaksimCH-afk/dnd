@@ -2,6 +2,7 @@
 import type { ChatMessage, GameState } from '@rpg/engine';
 import { activeModules, buildNpcContext } from '@rpg/engine';
 import { statusFields } from './status';
+import { heroSecretTokens, heroHiddenTraits } from './leak';
 
 const HISTORY_LIMIT = 10;
 
@@ -37,15 +38,23 @@ scope фактов: public | secret (только known_by) | player. NPC не �
 Без блока — если состояние не менялось.`;
 
 function sceneNpcCards(state: GameState): string {
+	// Что НЕ должны раскрывать NPC, не знающие героя (баг №3, уровень 1a).
+	const secrets = [...heroSecretTokens(state), ...heroHiddenTraits(state)];
+	const mustNotKnow = secrets.length ? `\n  НЕ ЗНАЕТ и НЕ упоминает: ${secrets.join('; ')}` : '';
 	const cards = state.session.npcs_in_scene
 		.map((id) => buildNpcContext(state, id))
 		.filter((c): c is NonNullable<typeof c> => c !== null)
 		.map((c) => {
 			const known = c.known_facts.length ? `\n  знает: ${c.known_facts.join('; ')}` : '';
-			const recog = c.recognizes_hero_secret ? '' : '\n  (тайн героя НЕ знает — не ссылайся на них)';
+			const recog = c.recognizes_hero_secret ? '' : mustNotKnow;
 			return `• ${c.core.name} — ${c.core.race}, ${c.core.age}, ${c.core.role}. характер: ${c.core.character}; мотивация: ${c.core.motivation}; настроение: ${c.living.mood}.${known}${recog}`;
 		});
-	return cards.length ? `NPC В СЦЕНЕ (веди строго по карточкам):\n${cards.join('\n')}` : '';
+	if (!cards.length) return '';
+	return (
+		`NPC В СЦЕНЕ (веди строго по карточкам):\n${cards.join('\n')}\n` +
+		`ЖЕЛЕЗНО: NPC говорит и действует только из того, что знает. Кто не знает тайн героя — ` +
+		`не намекает на них, не узнаёт «того самого», не называет настоящее имя/прикрытие/скрытую школу.`
+	);
 }
 
 function activeContracts(state: GameState): string {
