@@ -75,7 +75,7 @@ export const api = {
 
 // --- Админ-конфиг (ключи/модели по ролям; пароль в заголовке) ---
 
-type ModelRole = 'narrator' | 'validator' | 'director' | 'fallback';
+type ModelRole = 'narrator' | 'validator' | 'director' | 'fallback' | 'npc';
 export interface AdminConfigView {
 	keysSet: Record<'default' | ModelRole, boolean>;
 	/** Текущие списки моделей по ролям (первый — основной, далее альтернативы). */

@@ -18,6 +18,7 @@ export interface ServerConfig {
 		validator?: string;
 		director?: string;
 		fallback?: string;
+		npc?: string;
 	};
 }
 
@@ -37,6 +38,7 @@ export function buildModels(): AppModelConfig {
 	set('validator', process.env.OPENROUTER_MODEL_VALIDATOR);
 	set('director', process.env.OPENROUTER_MODEL_DIRECTOR);
 	set('fallback_narrator', process.env.OPENROUTER_MODEL_FALLBACK);
+	set('npc_spawn', process.env.OPENROUTER_MODEL_NPC);
 	return cfg;
 }
 
@@ -60,7 +62,8 @@ export function loadConfig(): ServerConfig {
 			...(process.env.OPENROUTER_KEY_NARRATOR ? { narrator: process.env.OPENROUTER_KEY_NARRATOR } : {}),
 			...(process.env.OPENROUTER_KEY_VALIDATOR ? { validator: process.env.OPENROUTER_KEY_VALIDATOR } : {}),
 			...(process.env.OPENROUTER_KEY_DIRECTOR ? { director: process.env.OPENROUTER_KEY_DIRECTOR } : {}),
-			...(process.env.OPENROUTER_KEY_FALLBACK ? { fallback: process.env.OPENROUTER_KEY_FALLBACK } : {})
+			...(process.env.OPENROUTER_KEY_FALLBACK ? { fallback: process.env.OPENROUTER_KEY_FALLBACK } : {}),
+			...(process.env.OPENROUTER_KEY_NPC ? { npc: process.env.OPENROUTER_KEY_NPC } : {})
 		}
 	};
 }
@@ -68,14 +71,14 @@ export function loadConfig(): ServerConfig {
 /** Ключ для роли: свой ключ роли (или fallback-ключ для тёмной сцены) → иначе общий. */
 export function keyForRole(cfg: ServerConfig, role: LlmRole, preferFallback = false): string | undefined {
 	if (role === 'narrator' && preferFallback && cfg.keys.fallback) return cfg.keys.fallback;
-	const own = cfg.keys[role as 'narrator' | 'validator' | 'director'];
+	const own = role === 'npc_spawn' ? cfg.keys.npc : cfg.keys[role as 'narrator' | 'validator' | 'director'];
 	return own || cfg.keys.default;
 }
 
 // --- Рантайм-переопределения (админ-панель) поверх env-базы ---
 
-type KeyRole = 'default' | 'narrator' | 'validator' | 'director' | 'fallback';
-type ModelRoleKey = 'narrator' | 'validator' | 'director' | 'fallback';
+type KeyRole = 'default' | 'narrator' | 'validator' | 'director' | 'fallback' | 'npc';
+type ModelRoleKey = 'narrator' | 'validator' | 'director' | 'fallback' | 'npc';
 
 /** Что админ может переопределить и сохранить в БД (поверх env).
  *  models[role] — список id (первый = основной, далее альтернативы по порядку). */
@@ -84,11 +87,12 @@ export interface ConfigOverrides {
 	models?: Partial<Record<ModelRoleKey, string[]>>;
 }
 
-const MODEL_ROLE_MAP: Record<ModelRoleKey, 'narrator' | 'validator' | 'director' | 'fallback_narrator'> = {
+const MODEL_ROLE_MAP: Record<ModelRoleKey, 'narrator' | 'validator' | 'director' | 'fallback_narrator' | 'npc_spawn'> = {
 	narrator: 'narrator',
 	validator: 'validator',
 	director: 'director',
-	fallback: 'fallback_narrator'
+	fallback: 'fallback_narrator',
+	npc: 'npc_spawn'
 };
 
 /** Нормализовать список моделей (строка или массив → массив непустых строк). */
@@ -110,14 +114,14 @@ export function snapshotBaseline(cfg: ServerConfig): ConfigBaseline {
 /** Наложить переопределения на базу и применить к cfg (мутирует cfg.keys/cfg.models). */
 export function applyOverrides(cfg: ServerConfig, base: ConfigBaseline, ov: ConfigOverrides): void {
 	const keys: ServerConfig['keys'] = { ...base.keys };
-	for (const role of ['default', 'narrator', 'validator', 'director', 'fallback'] as KeyRole[]) {
+	for (const role of ['default', 'narrator', 'validator', 'director', 'fallback', 'npc'] as KeyRole[]) {
 		const v = ov.keys?.[role];
 		if (v) keys[role] = v; // непустое значение переопределяет; пустое/отсутствует → env-база
 	}
 	cfg.keys = keys;
 
 	const models = structuredClone(base.models);
-	for (const role of ['narrator', 'validator', 'director', 'fallback'] as ModelRoleKey[]) {
+	for (const role of ['narrator', 'validator', 'director', 'fallback', 'npc'] as ModelRoleKey[]) {
 		const list = toModelList(ov.models?.[role]);
 		if (list.length) {
 			const m = models.models[MODEL_ROLE_MAP[role]];
@@ -139,21 +143,24 @@ export function publicConfigView(cfg: ServerConfig, ov: ConfigOverrides) {
 			narrator: Boolean(cfg.keys.narrator),
 			validator: Boolean(cfg.keys.validator),
 			director: Boolean(cfg.keys.director),
-			fallback: Boolean(cfg.keys.fallback)
+			fallback: Boolean(cfg.keys.fallback),
+			npc: Boolean(cfg.keys.npc)
 		},
 		// Текущие списки по ролям (первый — основной, далее альтернативы).
 		models: {
 			narrator: list(M.narrator),
 			validator: list(M.validator),
 			director: list(M.director),
-			fallback: list(M.fallback_narrator)
+			fallback: list(M.fallback_narrator),
+			npc: list(M.npc_spawn)
 		},
 		// Дефолтные списки (для кнопки «вернуть к дефолту»).
 		defaults: {
 			narrator: list(E.narrator),
 			validator: list(E.validator),
 			director: list(E.director),
-			fallback: list(E.fallback_narrator)
+			fallback: list(E.fallback_narrator),
+			npc: list(E.npc_spawn)
 		},
 		overridden: {
 			keys: Object.keys(ov.keys ?? {}).filter((k) => (ov.keys as Record<string, string>)[k]),

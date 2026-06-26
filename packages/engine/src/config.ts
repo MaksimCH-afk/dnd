@@ -7,7 +7,7 @@
  */
 
 /** Роли, требующие LLM-вызова. Эмбеддинги — локально (RAG), здесь как роль конфига. */
-export type LlmRole = 'narrator' | 'validator' | 'director';
+export type LlmRole = 'narrator' | 'validator' | 'director' | 'npc_spawn';
 
 /** Все роли в конфиге, включая фоллбэк и эмбеддер. */
 export type ModelRole = LlmRole | 'fallback_narrator' | 'embeddings';
@@ -75,6 +75,14 @@ export const DEFAULT_MODEL_CONFIG: AppModelConfig = {
 			temperature: 0.9,
 			maxTokens: 1536
 		},
+		npc_spawn: {
+			// Дешёвый помощник: дорисовывает карточку NPC (характер/мотив/секрет/облик),
+			// когда нарратор вводит новое лицо. Вызывается только при появлении NPC.
+			model: 'xiaomi/mimo-v2-flash',
+			alternatives: ['openai/gpt-oss-20b:free'],
+			temperature: 0.8,
+			maxTokens: 700
+		},
 		embeddings: {
 			// Локальный эмбеддер (transformers.js), сменный. Не идёт через прокси.
 			model: 'bge-m3',
@@ -96,5 +104,5 @@ export const FORBIDDEN_MODELS: readonly string[] = [
 ];
 
 export function isLlmRole(role: string): role is LlmRole {
-	return role === 'narrator' || role === 'validator' || role === 'director';
+	return role === 'narrator' || role === 'validator' || role === 'director' || role === 'npc_spawn';
 }

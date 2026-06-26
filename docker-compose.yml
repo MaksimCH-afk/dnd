@@ -1,9 +1,8 @@
-# Hosted-развёртывание (ТЗ v1.2): app-сервер (+ встроенный веб-клиент) + Postgres/pgvector.
-# Генеративные модели — в OpenRouter (GPU не нужен).
-# После старта игра доступна в браузере по http://<сервер>:8787/ (UI и API на одном порту).
-#
-# Запуск:  cp apps/server/.env.example .env  (вписать OPENROUTER_API_KEY)
+# Hosted-развёртывание (ТЗ v1.2): app-сервер (+ встроенный веб-клиент) + Postgres/pgvector
+# + Caddy (TLS/HTTPS) для доступа по домену.
+# Запуск:  cp apps/server/.env.example .env  (вписать OPENROUTER_API_KEY, CADDY_DOMAIN)
 #          docker compose up -d --build
+# После старта игра доступна по https://<домен>/ (Caddy сам берёт сертификат Let's Encrypt).
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -35,27 +34,35 @@ services:
       OPENROUTER_KEY_VALIDATOR: ${OPENROUTER_KEY_VALIDATOR:-}
       OPENROUTER_KEY_DIRECTOR: ${OPENROUTER_KEY_DIRECTOR:-}
       OPENROUTER_KEY_FALLBACK: ${OPENROUTER_KEY_FALLBACK:-}
+      OPENROUTER_KEY_NPC: ${OPENROUTER_KEY_NPC:-}
       OPENROUTER_MODEL_NARRATOR: ${OPENROUTER_MODEL_NARRATOR:-}
-      OPENROUTER_MODEL_NARRATOR_ALT: ${OPENROUTER_MODEL_NARRATOR_ALT:-}
       OPENROUTER_MODEL_VALIDATOR: ${OPENROUTER_MODEL_VALIDATOR:-}
       OPENROUTER_MODEL_DIRECTOR: ${OPENROUTER_MODEL_DIRECTOR:-}
       OPENROUTER_MODEL_FALLBACK: ${OPENROUTER_MODEL_FALLBACK:-}
+      OPENROUTER_MODEL_NPC: ${OPENROUTER_MODEL_NPC:-}
       EMBEDDER_MODEL: ${EMBEDDER_MODEL:-Xenova/bge-m3}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       PORT: 8787
+    # Прямой порт (локально/Tailscale/диагностика). Для публичного доступа — через Caddy ниже.
     ports:
       - '8787:8787'
 
-  # Reverse-proxy + TLS (для публичного доступа). Для Tailscale-доступа не обязателен.
-  # caddy:
-  #   image: caddy:2
-  #   restart: unless-stopped
-  #   depends_on: [server]
-  #   ports: ['80:80', '443:443']
-  #   volumes:
-  #     - ./deploy/Caddyfile:/etc/caddy/Caddyfile
-  #     - caddy_data:/data
+  # Reverse-proxy + автоматический HTTPS для домена.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [server]
+    environment:
+      CADDY_DOMAIN: ${CADDY_DOMAIN:-dnd.korolevskie-rozy.ru}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   pgdata:
-  # caddy_data:
+  caddy_data:
+  caddy_config:

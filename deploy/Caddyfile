@@ -1,24 +1,20 @@
-# Caddy: TLS + reverse-proxy для публичного доступа (ТЗ §C4 hosted-патча).
-# Замените example.com на ваш домен. Для приватного доступа предпочтительнее
-# Tailscale без публичного порта (тогда Caddy не нужен).
-#
-# При публичном доступе ОБЯЗАТЕЛЬНА аутентификация (basic-auth ниже), иначе
-# боты сожгут кредиты OpenRouter и прочитают данные.
+# Caddy: домен + автоматический HTTPS (Let's Encrypt) + reverse-proxy на app-сервер.
+# Домен берётся из переменной CADDY_DOMAIN (docker-compose). Сертификат Caddy получает
+# сам при первом запросе — нужны открытые порты 80 и 443 и A-запись домена на этот сервер.
 
-example.com {
-	# Базовая аутентификация (сгенерируйте хэш: `caddy hash-password`)
-	basicauth {
-		# admin <bcrypt-hash>
-	}
+{$CADDY_DOMAIN:dnd.korolevskie-rozy.ru} {
+	encode zstd gzip
 
-	# Тонкий клиент (статика веб-сборки) — отдаётся как файлы.
-	# handle_path /assets/* { root * /srv/web ; file_server }
-
-	# API app-сервера
-	reverse_proxy /campaigns* server:8787
-	reverse_proxy /turn* server:8787
-	reverse_proxy /health server:8787
-
-	# Клиент (SPA)
+	# Весь трафик (UI, API кампаний, SSE-ход) — на app-сервер. SSE Caddy стримит сам.
 	reverse_proxy server:8787
+
+	# --- РЕКОМЕНДУЕТСЯ на публичном домене: закрыть админку и логи паролем ---
+	# У админки нет своего пароля, поэтому на публичном адресе защищайте её здесь.
+	# 1) хэш:  docker compose exec caddy caddy hash-password --plaintext 'ВашПароль'
+	# 2) раскомментируйте и вставьте логин + хэш:
+	#
+	# @admin path /admin* /logs*
+	# basic_auth @admin {
+	# 	admin <вставьте-bcrypt-хэш>
+	# }
 }

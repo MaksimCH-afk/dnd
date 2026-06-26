@@ -39,17 +39,20 @@
 	let mValidator = $state('');
 	let mDirector = $state('');
 	let mFallback = $state('');
+	let mNpc = $state('');
 	let kDefault = $state('');
 	let kNarrator = $state('');
 	let kValidator = $state('');
 	let kDirector = $state('');
 	let kFallback = $state('');
+	let kNpc = $state('');
 
 	function fillModels(v: AdminConfigView) {
 		mNarrator = v.models.narrator.join('\n');
 		mValidator = v.models.validator.join('\n');
 		mDirector = v.models.director.join('\n');
 		mFallback = v.models.fallback.join('\n');
+		mNpc = v.models.npc.join('\n');
 	}
 	const lines = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
 
@@ -77,7 +80,7 @@
 		adminMsg = '';
 		adminBusy = true;
 		const patch: AdminConfigPatch = {
-			models: { narrator: lines(mNarrator), validator: lines(mValidator), director: lines(mDirector), fallback: lines(mFallback) },
+			models: { narrator: lines(mNarrator), validator: lines(mValidator), director: lines(mDirector), fallback: lines(mFallback), npc: lines(mNpc) },
 			keys: {}
 		};
 		if (kDefault.trim()) patch.keys!.default = kDefault.trim();
@@ -85,10 +88,11 @@
 		if (kValidator.trim()) patch.keys!.validator = kValidator.trim();
 		if (kDirector.trim()) patch.keys!.director = kDirector.trim();
 		if (kFallback.trim()) patch.keys!.fallback = kFallback.trim();
+		if (kNpc.trim()) patch.keys!.npc = kNpc.trim();
 		try {
 			adminView = await adminApi.save(settings.serverUrl, patch);
 			fillModels(adminView);
-			kDefault = kNarrator = kValidator = kDirector = kFallback = '';
+			kDefault = kNarrator = kValidator = kDirector = kFallback = kNpc = '';
 			adminMsg = 'Сохранено и применено.';
 		} catch (e) {
 			adminErr = (e as Error).message;
@@ -97,7 +101,7 @@
 		}
 	}
 
-	async function clearKey(role: 'default' | 'narrator' | 'validator' | 'director' | 'fallback') {
+	async function clearKey(role: 'default' | 'narrator' | 'validator' | 'director' | 'fallback' | 'npc') {
 		adminBusy = true;
 		adminErr = '';
 		adminMsg = '';
@@ -168,7 +172,7 @@
 				<div class="admin-block">
 					<div class="block-title mono">Модели по ролям</div>
 					<p class="hint">По одному id OpenRouter в строке: <b>первая — основная</b>, далее альтернативы по порядку (авто-фолбэк при отказе/лимите). Пусто — вернуть к дефолту.</p>
-					{#snippet modelBox(label: string, role: 'narrator' | 'validator' | 'director' | 'fallback', value: string, set: (v: string) => void)}
+					{#snippet modelBox(label: string, role: 'narrator' | 'validator' | 'director' | 'fallback' | 'npc', value: string, set: (v: string) => void)}
 						<div class="model-block">
 							<div class="model-head">
 								<span class="ml mono">{label}</span>
@@ -187,12 +191,13 @@
 					{@render modelBox('Валидатор', 'validator', mValidator, (v) => (mValidator = v))}
 					{@render modelBox('Режиссёр', 'director', mDirector, (v) => (mDirector = v))}
 					{@render modelBox('Фоллбэк (тёмные сцены)', 'fallback', mFallback, (v) => (mFallback = v))}
+					{@render modelBox('NPC-спавн', 'npc', mNpc, (v) => (mNpc = v))}
 				</div>
 
 				<div class="admin-block">
 					<div class="block-title mono">Ключи OpenRouter по ролям</div>
 					<p class="hint">Введите ключ, чтобы задать/заменить. Пустое поле — не менять. ✕ — сбросить.</p>
-					{#snippet keyRow(label: string, role: 'default' | 'narrator' | 'validator' | 'director' | 'fallback', value: string, set: (v: string) => void)}
+					{#snippet keyRow(label: string, role: 'default' | 'narrator' | 'validator' | 'director' | 'fallback' | 'npc', value: string, set: (v: string) => void)}
 						<label class="arow">
 							<span>{label}</span>
 							<input
@@ -212,6 +217,7 @@
 					{@render keyRow('Валидатор', 'validator', kValidator, (v) => (kValidator = v))}
 					{@render keyRow('Режиссёр', 'director', kDirector, (v) => (kDirector = v))}
 					{@render keyRow('Фоллбэк', 'fallback', kFallback, (v) => (kFallback = v))}
+					{@render keyRow('NPC-спавн', 'npc', kNpc, (v) => (kNpc = v))}
 				</div>
 
 				<div class="admin-actions">

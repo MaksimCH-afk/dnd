@@ -18,7 +18,7 @@ import {
 import type { ServerConfig } from '../config';
 import type { Db } from '../db';
 import type { Campaigns } from '../campaigns';
-import { streamCompletion } from '../openrouter';
+import { streamCompletion, complete } from '../openrouter';
 import type { Rag } from '../rag';
 import { buildNarratorMessages } from './prompt';
 import { extractOps, isDarkScene } from './ops-extract';
@@ -133,6 +133,38 @@ export async function runTurn(
 		const text = `Движок отклонил ${res.rejected.length} оп.: ${res.rejected.map((r) => r.reason).join('; ')}`;
 		state.transcript.push({ speaker: 'system', text });
 		send({ type: 'system', text });
+	}
+
+	// 3b) NPC-спавн-хелпер: дорисовать карточки новых NPC, если нарратор ввёл их «тонко».
+	const newNpcs = state.npc
+		.slice(npcBefore)
+		.filter((n) => !n.core.motivation || n.core.motivation === '—' || !n.core.secret || n.core.secret === '—' || !n.core.appearance);
+	for (const n of newNpcs.slice(0, 3)) {
+		try {
+			const sys =
+				'Ты — генератор второстепенных персонажей для тёмного фэнтези. По краткому описанию верни СТРОГИЙ JSON ' +
+				'{"estate","role","speech_register","character","motivation","secret","appearance"} — коротко, на русском, в духе сцены. Только JSON, без пояснений.';
+			const usr = `NPC: ${n.core.name} (${n.core.race}${n.core.role && n.core.role !== 'прохожий' ? ', ' + n.core.role : ''}).\nСцена: ${state.session.current_moment}`;
+			const raw = await complete(cfg, 'npc_spawn', [
+				{ role: 'system', content: sys },
+				{ role: 'user', content: usr }
+			], { temperature: 0.8, maxTokens: 600 });
+			const a = raw.indexOf('{');
+			const b = raw.lastIndexOf('}');
+			if (a < 0 || b <= a) continue;
+			const data = JSON.parse(raw.slice(a, b + 1)) as Record<string, unknown>;
+			const fields: Record<string, string> = {};
+			for (const k of ['estate', 'role', 'speech_register', 'character', 'motivation', 'secret', 'appearance']) {
+				const v = data[k];
+				if (typeof v === 'string' && v.trim()) fields[k] = v.trim().slice(0, 220);
+			}
+			if (Object.keys(fields).length) {
+				state = applyOps(state, [{ op: 'npc.alter_core', id: n.id, fields, cause: 'npc-спавн-хелпер' }], { day }).state;
+				void logEvent(db, campaignId, turnId, seq++, 'llm_call', 'info', { role: 'npc_spawn', npc: n.id, fields: Object.keys(fields) });
+			}
+		} catch {
+			/* хелпер не критичен — NPC останется с базовой карточкой */
+		}
 	}
 
 	// 4) Отложенные последствия (seeds).
