@@ -14,6 +14,10 @@ function isRetryable(status: number): boolean {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Таймауты против зависших апстримов (иначе ход «висит» вечно и сервер падает по healthcheck).
+const CONNECT_TIMEOUT_MS = 45000; // время до первого ответа модели
+const STREAM_IDLE_MS = 90000; // пауза без новых токенов в стриме → обрыв
+
 function candidateModels(cfg: ServerConfig, role: LlmRole, preferFallback: boolean): string[] {
 	const roleCfg = cfg.models.models[role];
 	const list: string[] = [roleCfg.model, ...(roleCfg.alternatives ?? [])];
@@ -39,12 +43,13 @@ export async function* streamCompletion(
 	const roleCfg = cfg.models.models[role];
 	const models = candidateModels(cfg, role, opts.preferFallback ?? false);
 	const { maxRetries, backoffBaseMs, backoffMaxMs } = cfg.models.retry;
-	const signal = opts.signal ?? new AbortController().signal;
+	const callerSignal = opts.signal;
 
 	let usedModel = '';
 	let usedFallback = false;
 	let attempts = 0;
 	let res: Response | null = null;
+	let streamCtrl: AbortController | null = null;
 	let lastErr = 'неизвестная ошибка';
 
 	outer: for (const model of models) {
@@ -52,6 +57,14 @@ export async function* streamCompletion(
 		for (let r = 0; r <= maxRetries; r++) {
 			attempts++;
 			let retryAfterMs = 0;
+			// Контроллер на попытку: обрывается по таймауту соединения или сигналу вызывающего.
+			const ctrl = new AbortController();
+			const onCallerAbort = () => ctrl.abort();
+			if (callerSignal) {
+				if (callerSignal.aborted) return;
+				callerSignal.addEventListener('abort', onCallerAbort);
+			}
+			const connectTimer = setTimeout(() => ctrl.abort(), CONNECT_TIMEOUT_MS);
 			try {
 				const headers: Record<string, string> = {
 					'Content-Type': 'application/json',
@@ -68,9 +81,11 @@ export async function* streamCompletion(
 					max_tokens: opts.maxTokens ?? roleCfg.maxTokens,
 					...(opts.tools ? { tools: opts.tools } : {})
 				});
-				const resp = await fetch(OPENROUTER_URL, { method: 'POST', headers, body, signal });
+				const resp = await fetch(OPENROUTER_URL, { method: 'POST', headers, body, signal: ctrl.signal });
+				clearTimeout(connectTimer);
 				if (resp.ok && resp.body) {
 					res = resp;
+					streamCtrl = ctrl; // оставляем для idle-таймаута стрима
 					usedModel = model;
 					usedFallback = isFallback;
 					break outer;
@@ -82,10 +97,16 @@ export async function* streamCompletion(
 					if (Number.isFinite(ra) && ra > 0) retryAfterMs = Math.min(ra * 1000, 30000);
 				}
 				await resp.text().catch(() => undefined);
+				if (callerSignal) callerSignal.removeEventListener('abort', onCallerAbort);
 				if (!isRetryable(resp.status)) break;
 			} catch (err) {
-				if (signal.aborted) return;
-				lastErr = `сеть: ${(err as Error).message} (${model})`;
+				clearTimeout(connectTimer);
+				if (callerSignal?.aborted) {
+					callerSignal.removeEventListener('abort', onCallerAbort);
+					return;
+				}
+				if (callerSignal) callerSignal.removeEventListener('abort', onCallerAbort);
+				lastErr = `сеть/таймаут: ${(err as Error).message} (${model})`;
 			}
 			if (r < maxRetries) await sleep(Math.max(retryAfterMs, Math.min(backoffBaseMs * 2 ** r, backoffMaxMs)));
 		}
@@ -101,10 +122,19 @@ export async function* streamCompletion(
 	let buffer = '';
 	let finishReason: string | undefined;
 	let usage: LlmResponseMeta['usage'];
+	// Idle-таймаут стрима: если токены перестали идти — обрываем, отдаём, что успели.
+	let idleTimer: ReturnType<typeof setTimeout> | null = null;
+	const resetIdle = () => {
+		if (idleTimer) clearTimeout(idleTimer);
+		idleTimer = setTimeout(() => streamCtrl?.abort(), STREAM_IDLE_MS);
+	};
+	if (callerSignal) callerSignal.addEventListener('abort', () => streamCtrl?.abort());
+	resetIdle();
 
 	try {
 		while (true) {
 			const { done, value } = await reader.read();
+			resetIdle();
 			if (done) break;
 			buffer += decoder.decode(value, { stream: true });
 			let nl: number;
@@ -134,7 +164,10 @@ export async function* streamCompletion(
 				}
 			}
 		}
+	} catch {
+		// Обрыв/idle-таймаут стрима — не валим ход: отдаём накопленное и завершаем мета-событием.
 	} finally {
+		if (idleTimer) clearTimeout(idleTimer);
 		reader.releaseLock();
 	}
 

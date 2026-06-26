@@ -484,4 +484,21 @@ async function main(): Promise<void> {
 	});
 }
 
+// Страховка: один плохой ход не должен ронять процесс (иначе игра «падает» на сервере).
+// Логируем причину в БД (отдельно от состояния) и остаёмся живы. (ТЗ §19, §22.)
+async function logCrash(kind: string, err: unknown): Promise<void> {
+	const message = err instanceof Error ? err.stack || err.message : String(err);
+	console.error(`[server] ${kind}:`, message);
+	try {
+		await db.pool.query(
+			'INSERT INTO logs (campaign_id, ts, turn_id, seq, type, level, payload) VALUES (NULL, $1, 0, 0, $2, $3, $4)',
+			[Date.now(), 'error', 'error', JSON.stringify({ stage: kind, message: message.slice(0, 4000) })]
+		);
+	} catch {
+		/* лог не критичен */
+	}
+}
+process.on('unhandledRejection', (reason) => void logCrash('unhandledRejection', reason));
+process.on('uncaughtException', (err) => void logCrash('uncaughtException', err));
+
 void main();
