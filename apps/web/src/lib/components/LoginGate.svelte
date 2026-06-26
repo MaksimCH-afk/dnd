@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { auth, login, setupAuth } from '$lib/auth.svelte';
+	import { auth, login, setupAuth, loadRemember } from '$lib/auth.svelte';
 
-	let user = $state('');
+	const remembered = loadRemember();
+	let user = $state(remembered?.user ?? '');
 	let password = $state('');
 	let password2 = $state('');
+	let remember = $state(Boolean(remembered));
 	let busy = $state(false);
 	let error = $state('');
 
@@ -20,8 +22,8 @@
 		}
 		busy = true;
 		try {
-			if (setup) await setupAuth(user.trim(), password);
-			else await login(user.trim(), password);
+			if (setup) await setupAuth(user.trim(), password, remember);
+			else await login(user.trim(), password, remember);
 		} catch (err) {
 			error = (err as Error).message;
 		} finally {
@@ -54,6 +56,11 @@
 				<input type="password" bind:value={password2} autocomplete="new-password" placeholder="повторите пароль" />
 			</label>
 		{/if}
+
+		<label class="remember">
+			<input type="checkbox" bind:checked={remember} />
+			<span>Запомнить меня (вход без повторного ввода)</span>
+		</label>
 
 		{#if error}<p class="err mono">✕ {error}</p>{/if}
 
@@ -113,6 +120,9 @@
 		outline: none;
 	}
 	input:focus { border-color: var(--accent); }
+	.remember { display: flex; align-items: center; gap: 0.5rem; text-align: left; margin: 0.2rem 0 0.9rem; cursor: pointer; }
+	.remember input { width: auto; }
+	.remember span { font-size: 0.8rem; color: var(--text-dim); }
 	.err { color: var(--danger); font-size: 0.82em; margin: 0 0 0.6rem; }
 	.go {
 		width: 100%;
