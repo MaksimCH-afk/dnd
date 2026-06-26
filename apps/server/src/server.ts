@@ -257,6 +257,15 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 		try {
 			await runTurn(cfg, db, campaigns, rag, rules, body.campaignId, body.input, send);
 		} catch (e) {
+			// error (ТЗ §22.3): фиксируем исключение хода в лог отдельно от состояния.
+			try {
+				await db.pool.query(
+					'INSERT INTO logs (campaign_id, ts, turn_id, seq, type, level, payload) VALUES ($1, $2, 0, 0, $3, $4, $5)',
+					[body.campaignId, Date.now(), 'error', 'error', JSON.stringify({ stage: 'turn', message: (e as Error).message })]
+				);
+			} catch {
+				/* лог не критичен */
+			}
 			send({ type: 'error', message: (e as Error).message, code: 'internal' });
 		} finally {
 			res.end();

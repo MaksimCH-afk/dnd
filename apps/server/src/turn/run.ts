@@ -11,6 +11,7 @@ import {
 	resolveExchange,
 	pickNextArc,
 	beginArc,
+	tickWorld,
 	npcRecognizesHeroSecret,
 	type CombatStyle,
 	type GameState,
@@ -37,6 +38,7 @@ export type TurnEvent =
 type Send = (e: TurnEvent) => void;
 
 const DIRECTOR_INTERVAL = 6;
+const WORLD_TICK_INTERVAL = 4; // как часто мир-симуляция двигает фракции (ТЗ §12)
 const AUTOSNAPSHOT_EVERY = 5; // каждые N ходов — точка возврата
 const AUTOSNAPSHOT_KEEP = 20; // сколько автосейвов держать (ручные /save не трогаются)
 
@@ -107,12 +109,17 @@ export async function runTurn(
 	const npcBefore = state.npc.length;
 	const preferFallback = isDarkScene(input, state.session.current_moment);
 	const messages = buildNarratorMessages(state, input, retrieved, outcomes, rules);
-	// Лог состава промпта (проверка инъекции правил, ТЗ §22): размер + сработавшие триггеры Слоя B.
+	// context_assembled (ТЗ §22.3): RAG-запрос + top-k + карточки NPC + активные модули + оценка длины.
 	const sysContent = messages[0]?.content ?? '';
-	void logEvent(db, campaignId, turnId, seq++, 'prompt_built', 'info', {
-		systemChars: sysContent.length,
-		layerB: sysContent.includes('СПРАВКА ПО МИРУ'),
-		retrieved: retrieved.length
+	void logEvent(db, campaignId, turnId, seq++, 'context_assembled', 'info', {
+		rag_query: `${input} ${state.session.current_moment}`.slice(0, 200),
+		retrieved_count: retrieved.length,
+		retrieved: retrieved.slice(0, 8),
+		npc_cards: state.session.npcs_in_scene,
+		active_modules: Object.keys(state.character.modules),
+		layer_b: sysContent.includes('СПРАВКА ПО МИРУ'),
+		prompt_chars: sysContent.length,
+		prompt_tokens_est: Math.round(sysContent.length / 4)
 	});
 	let prose = '';
 	let model: string | undefined;
@@ -125,6 +132,7 @@ export async function runTurn(
 			model = ev.meta.model;
 			usedFallback = ev.meta.usedFallback;
 		} else if (ev.type === 'error') {
+			void logEvent(db, campaignId, turnId, seq++, 'error', 'error', { stage: 'narrator', message: ev.message, code: ev.code });
 			send({ type: 'error', message: ev.message, code: ev.code });
 		}
 	}
@@ -143,6 +151,12 @@ export async function runTurn(
 	const masterEntry: { speaker: 'master'; text: string; model?: string } = { speaker: 'master', text: master, ...(model ? { model } : {}) };
 	state.transcript = [...(state.transcript ?? []), masterEntry];
 	void logEvent(db, campaignId, turnId, seq++, 'applied_ops', 'info', { applied: res.applied.map((o) => o.op), rejected: res.rejected });
+	// validation (ТЗ §22.3): что предложено/применено/отклонено и почему (детерминированные проверки движка).
+	void logEvent(db, campaignId, turnId, seq++, 'validation', 'info', {
+		proposed: ops.length,
+		applied: res.applied.length,
+		rejected: res.rejected.map((r) => ({ op: r.op.op, reason: r.reason }))
+	});
 	if (res.rejected.length) {
 		const text = `Движок отклонил ${res.rejected.length} оп.: ${res.rejected.map((r) => r.reason).join('; ')}`;
 		state.transcript.push({ speaker: 'system', text });
@@ -229,6 +243,20 @@ export async function runTurn(
 		} catch {
 			/* хелпер не критичен — NPC останется с базовой карточкой */
 		}
+	}
+
+	// 3c) Мир-симуляция (ТЗ §12, чинит №1): фракции двигаются сами, рождают слухи/seeds.
+	// Тик по интервалу и вне боя — новизна из симуляции, не из выдумки модели.
+	if (!state.combat && turnId % WORLD_TICK_INTERVAL === 0) {
+		const wRng = makeRng(seedFromString(`world|${day}|${turnId}`));
+		const wr = tickWorld(state, wRng);
+		state = wr.state;
+		for (const r of wr.rumors) {
+			const text = `⟳ Мир живёт: ${r}`;
+			state.transcript!.push({ speaker: 'system', text });
+			send({ type: 'system', text });
+		}
+		void logEvent(db, campaignId, turnId, seq++, 'worldsim', 'info', { kind: 'tick', clock_day: state.world_state?.clock_day, rumors: wr.rumors.length });
 	}
 
 	// 4) Отложенные последствия (seeds).
