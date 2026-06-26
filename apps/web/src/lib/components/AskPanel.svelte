@@ -41,6 +41,7 @@
 		llm_call: '🧠',
 		validation: '⚙',
 		applied_ops: '±',
+		state_diff: '⇄',
 		leak_fixed: '🔒',
 		leak_detected: '🔒',
 		worldsim: '⟳',
@@ -65,6 +66,16 @@
 				return `проверки: предложено ${p.proposed}, применено ${p.applied}, отклонено ${(p.rejected as unknown[])?.length ?? 0}${(p.rejected as { reason: string }[])?.length ? ` — ${(p.rejected as { reason: string }[]).map((r) => r.reason).join('; ')}` : ''}`;
 			case 'applied_ops':
 				return `дельты: ${(p.applied as string[])?.join(', ') || '—'}`;
+			case 'state_diff': {
+				const parts: string[] = [];
+				const pair = (k: string, v: unknown) => Array.isArray(v) && parts.push(`${k} ${v[0]}→${v[1]}`);
+				pair('капитал', p.capital);
+				pair('HP', p.hp);
+				pair('выносл.', p.stamina);
+				if ((p.items_added as string[])?.length) parts.push(`+предметы: ${(p.items_added as string[]).join(', ')}`);
+				if ((p.items_removed as string[])?.length) parts.push(`−предметы: ${(p.items_removed as string[]).join(', ')}`);
+				return `изменения: ${parts.join(' · ') || 'нет'}`;
+			}
 			case 'leak_fixed':
 				return `утечка тайны переписана: ${p.reason}`;
 			case 'leak_detected':

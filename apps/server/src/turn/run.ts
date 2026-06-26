@@ -148,11 +148,28 @@ export async function runTurn(
 			? '(Мастер внёс изменения, но не описал сцену. Продолжи — опиши, что делаешь.)'
 			: '⚠ Мастер не прислал ответ — на бесплатной модели так бывает. Попробуй ещё раз; при повторе смени модель Ведущего в конфиге сервера.';
 	}
+	// Снимок ключевых сущностей ДО применения — для числового state_diff (диагностика №5).
+	const snap = (s: GameState) => ({
+		capital: s.inventory.capital_mp,
+		hp: s.character.core.hp.cur,
+		stamina: s.character.core.stamina.cur,
+		items: s.inventory.items.map((i) => `${i.id}×${i.qty}`)
+	});
+	const beforeSnap = snap(state);
 	const res = applyOps(state, ops, { day });
 	state = res.state;
 	const masterEntry: { speaker: 'master'; text: string; model?: string } = { speaker: 'master', text: master, ...(model ? { model } : {}) };
 	state.transcript = [...(state.transcript ?? []), masterEntry];
 	void logEvent(db, campaignId, turnId, seq++, 'applied_ops', 'info', { applied: res.applied.map((o) => o.op), rejected: res.rejected });
+	// state_diff (ТЗ §22.3): числовой дифф before→after по капиталу/HP/выносл./инвентарю — ловит №5.
+	const afterSnap = snap(state);
+	void logEvent(db, campaignId, turnId, seq++, 'state_diff', 'info', {
+		...(beforeSnap.capital !== afterSnap.capital ? { capital: [beforeSnap.capital, afterSnap.capital] } : {}),
+		...(beforeSnap.hp !== afterSnap.hp ? { hp: [beforeSnap.hp, afterSnap.hp] } : {}),
+		...(beforeSnap.stamina !== afterSnap.stamina ? { stamina: [beforeSnap.stamina, afterSnap.stamina] } : {}),
+		items_added: afterSnap.items.filter((x) => !beforeSnap.items.includes(x)),
+		items_removed: beforeSnap.items.filter((x) => !afterSnap.items.includes(x))
+	});
 	// validation (ТЗ §22.3): что предложено/применено/отклонено и почему (детерминированные проверки движка).
 	void logEvent(db, campaignId, turnId, seq++, 'validation', 'info', {
 		proposed: ops.length,

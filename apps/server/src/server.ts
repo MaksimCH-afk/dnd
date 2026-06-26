@@ -205,7 +205,7 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 			turn = (t.rows[0]?.m as number) || 0;
 		}
 		// Курируем «под капот»: броски, валидация, дельты, модели, утечки, мир-сим (не сырые промпты).
-		const KINDS = ['input', 'mechanics', 'context_assembled', 'llm_call', 'validation', 'applied_ops', 'leak_fixed', 'leak_detected', 'worldsim', 'persist', 'death', 'error'];
+		const KINDS = ['input', 'mechanics', 'context_assembled', 'llm_call', 'validation', 'applied_ops', 'state_diff', 'leak_fixed', 'leak_detected', 'worldsim', 'persist', 'death', 'error'];
 		const r = await db.pool.query(
 			`SELECT seq, type, level, payload FROM logs WHERE campaign_id = $1 AND turn_id = $2 AND type = ANY($3) ORDER BY seq`,
 			[campaign, turn, KINDS]
