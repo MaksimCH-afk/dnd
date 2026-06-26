@@ -45,7 +45,7 @@ function bearer(req: IncomingMessage): string {
 
 /** Защищаемые маршруты (всё API). Статика и /auth/* — открыты. */
 function isProtectedPath(path: string): boolean {
-	return /^\/(campaigns|turn|admin|logs|health|rules)\b/.test(path);
+	return /^\/(campaigns|turn|admin|logs|health|rules|ask)\b/.test(path);
 }
 
 function setCors(req: IncomingMessage, res: ServerResponse): void {
@@ -188,6 +188,29 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 			'Content-Disposition': 'attachment; filename="rpg-server-logs.json"'
 		});
 		res.end(body);
+		return;
+	}
+
+	// GET /ask?campaign=<id>&turn=<n?> — мета-режим: курируемое окно в NDJSON-лог хода (§11, §22.7).
+	if (req.method === 'GET' && path === '/ask') {
+		const u = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+		const campaign = u.searchParams.get('campaign');
+		if (!campaign) {
+			json(res, 400, { error: 'нужен параметр campaign' });
+			return;
+		}
+		let turn = Number(u.searchParams.get('turn')) || 0;
+		if (!turn) {
+			const t = await db.pool.query('SELECT max(turn_id) AS m FROM logs WHERE campaign_id = $1 AND turn_id > 0', [campaign]);
+			turn = (t.rows[0]?.m as number) || 0;
+		}
+		// Курируем «под капот»: броски, валидация, дельты, модели, утечки, мир-сим (не сырые промпты).
+		const KINDS = ['input', 'mechanics', 'context_assembled', 'llm_call', 'validation', 'applied_ops', 'leak_fixed', 'leak_detected', 'worldsim', 'persist', 'death', 'error'];
+		const r = await db.pool.query(
+			`SELECT seq, type, level, payload FROM logs WHERE campaign_id = $1 AND turn_id = $2 AND type = ANY($3) ORDER BY seq`,
+			[campaign, turn, KINDS]
+		);
+		json(res, 200, { turn, events: r.rows });
 		return;
 	}
 

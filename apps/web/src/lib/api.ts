@@ -198,6 +198,19 @@ export const rulesApi = {
 		jpost<{ rule: RuleView }>(base, `/admin/rules/${slug}/restore`, { version }).then((d) => d.rule)
 };
 
+// --- /ask — мета-режим (курируемое окно в NDJSON-лог хода) ---
+
+export interface AskEvent {
+	seq: number;
+	type: string;
+	level: string;
+	payload: Record<string, unknown>;
+}
+export const askApi = {
+	turn: (base: string, campaignId: string, turn?: number) =>
+		jget<{ turn: number; events: AskEvent[] }>(base, `/ask?campaign=${encodeURIComponent(campaignId)}${turn ? `&turn=${turn}` : ''}`)
+};
+
 // --- Ход (SSE) ---
 
 export interface TurnHandlers {

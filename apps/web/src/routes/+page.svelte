@@ -12,6 +12,7 @@
 	import LoginGate from '$lib/components/LoginGate.svelte';
 	import Ledger from '$lib/components/Ledger.svelte';
 	import SnapshotsPanel from '$lib/components/SnapshotsPanel.svelte';
+	import AskPanel from '$lib/components/AskPanel.svelte';
 	import { settings, toggleTheme } from '$lib/settings.svelte';
 	import { auth, initAuth, logout } from '$lib/auth.svelte';
 	import { session, sendTurn, createCampaign, openCampaign, saveGame, checkConnection } from '$lib/session.svelte';
@@ -26,6 +27,7 @@
 	let showCreation = $state(false);
 	let showOnboarding = $state(false);
 	let showSnapshots = $state(false);
+	let showAsk = $state(false);
 	let ledgerOpen = $state(true);
 
 	const thread = $derived(session.state ? threadModel(session.state) : { intensity: 0.2, tone: 'accent' as const, pulse: false, label: '' });
@@ -70,7 +72,11 @@
 			return;
 		}
 		if (text.startsWith('/ask')) {
-			addSystem('/ask: мета-режим читает серверный лог хода (раздел 22). Подключение окна — следующим шагом.');
+			if (!session.campaignId) {
+				addSystem('/ask доступен после начала игры.');
+				return;
+			}
+			showAsk = true;
 			return;
 		}
 		if (!session.campaignId) {
@@ -224,6 +230,7 @@
 {/if}
 {#if showReference}<ReferencePanel onclose={() => (showReference = false)} />{/if}
 {#if showSnapshots}<SnapshotsPanel onclose={() => (showSnapshots = false)} onrestored={() => addSystem('⤺ Состояние восстановлено из точки сохранения.')} />{/if}
+{#if showAsk}<AskPanel onclose={() => (showAsk = false)} />{/if}
 {#if showCreation}<CreationWizard oncreated={onCreated} oncancel={() => (showCreation = false)} />{/if}
 {#if showOnboarding}
 	<OnboardingWizard

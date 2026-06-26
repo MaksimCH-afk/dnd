@@ -42,7 +42,7 @@ sw.addEventListener('fetch', (event) => {
 	// Только same-origin статика. Запросы к прокси (LLM) — всегда сеть, не кэшируем.
 	if (url.origin !== sw.location.origin) return;
 	// API app-сервера (тот же origin) — всегда сеть, не кэшируем (свежие кампании/конфиг/ход).
-	if (/^\/(admin|campaigns|turn|health|logs)\b/.test(url.pathname)) return;
+	if (/^\/(admin|campaigns|turn|health|logs|ask|rules|auth)\b/.test(url.pathname)) return;
 
 	event.respondWith(
 		(async () => {
