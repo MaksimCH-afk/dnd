@@ -133,3 +133,23 @@ test('исходное состояние не мутируется (чиста�
 	applyOps(state, [{ op: 'item.add', item: { name: 'X', qty: 1 } }], ctx);
 	assert.equal(JSON.stringify(state), snapshot, 'prev не тронут');
 });
+
+test('каст тратит выносливость (magic.md): progress.tick activity=cast → −выносл.', () => {
+	const state = initialState();
+	// добавим магу модуль magic поверх дефолтного combat_mastery
+	state.character.modules.magic = { power: 'Полон', mage_type: 'своесильный', schools: [{ name: 'стихийная', mastery: 'Новичок' }], dark_arcs: [] };
+	const st0 = state.character.core.stamina.cur;
+	const r = applyOps(state, [{ op: 'progress.tick', activity: 'cast', n: 2 }], ctx);
+	assert.equal(r.rejected.length, 0);
+	assert.equal(r.state.character.core.stamina.cur, st0 - 4 * 2, 'два тика каста → −8 выносливости');
+
+	// не-маг: cast без модуля magic не трогает выносливость (и счётчик всё равно растёт)
+	const warrior = initialState();
+	const w0 = warrior.character.core.stamina.cur;
+	const rw = applyOps(warrior, [{ op: 'progress.tick', activity: 'cast' }], ctx);
+	assert.equal(rw.state.character.core.stamina.cur, w0, 'без модуля magic выносливость не падает');
+
+	// прочие активности не трогают выносливость
+	const r2 = applyOps(state, [{ op: 'progress.tick', activity: 'persuade' }], ctx);
+	assert.equal(r2.state.character.core.stamina.cur, st0, 'persuade не тратит выносливость');
+});

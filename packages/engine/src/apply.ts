@@ -40,6 +40,9 @@ export interface ApplyResult {
 	log: string[];
 }
 
+/** Базовый расход выносливости за один «тик» каста (magic.md: каст утомляет). */
+const CAST_STAMINA_COST = 4;
+
 function clamp(v: number, lo: number, hi: number): number {
 	return Math.max(lo, Math.min(hi, v));
 }
@@ -471,7 +474,8 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 			case 'progress.tick': {
 				if (!state.progress) state.progress = { counters: {}, granted: [] };
 				const prog = state.progress;
-				const next = (prog.counters[op.activity] ?? 0) + (op.n ?? 1);
+				const ticks = op.n ?? 1;
+				const next = (prog.counters[op.activity] ?? 0) + ticks;
 				prog.counters[op.activity] = next;
 				const unlocked = unlockedAt(op.activity, next).filter(
 					(t) => !prog.granted.includes(t.feature) && (!t.requiresModule || active.has(t.requiresModule))
@@ -482,7 +486,18 @@ export function applyOps(prev: GameState, ops: Op[], ctx: ApplyContext): ApplyRe
 						state.character.core.features.push(t.feature);
 					}
 				}
-				ok(op, unlocked.length ? `практика ${op.activity}=${next} → особенность: ${unlocked.map((u) => u.feature).join(', ')}` : `практика ${op.activity}=${next}`);
+				// Каст тратит выносливость (magic.md/master.md: «и Силу, и выносливость»; маг-«пулемёт» выдыхается).
+				// Сам каст нарративен (нарратор судит по 3 осям + power.set), здесь — авто-расход выносливости.
+				let castNote = '';
+				if (op.activity === 'cast' && active.has('magic')) {
+					const st = state.character.core.stamina;
+					const drain = Math.min(st.cur, CAST_STAMINA_COST * ticks);
+					if (drain > 0) {
+						st.cur -= drain;
+						castNote = ` (−${drain} выносл. за каст → ${st.cur}/${st.max})`;
+					}
+				}
+				ok(op, (unlocked.length ? `практика ${op.activity}=${next} → особенность: ${unlocked.map((u) => u.feature).join(', ')}` : `практика ${op.activity}=${next}`) + castNote);
 				break;
 			}
 
