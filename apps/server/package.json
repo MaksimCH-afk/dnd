@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node --import tsx src/server.ts",
+    "recall": "node --import tsx scripts/recall-check.ts",
     "check": "tsc --noEmit"
   },
   "dependencies": {
