@@ -16,8 +16,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function candidateModels(cfg: ServerConfig, role: LlmRole, preferFallback: boolean): string[] {
 	const roleCfg = cfg.models.models[role];
-	const list: string[] = [roleCfg.model];
-	if (roleCfg.alternative) list.push(roleCfg.alternative);
+	const list: string[] = [roleCfg.model, ...(roleCfg.alternatives ?? [])];
 	if (role === 'narrator') {
 		const fb = cfg.models.models.fallback_narrator.model;
 		if (fb) preferFallback ? list.unshift(fb) : list.push(fb);

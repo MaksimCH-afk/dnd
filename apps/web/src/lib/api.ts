@@ -28,7 +28,7 @@ export interface HealthInfo {
 	ok: boolean;
 	db: boolean;
 	hasKey: boolean;
-	models: Record<string, { model: string; alternative?: string }>;
+	models: Record<string, { model: string; alternatives?: string[] }>;
 	version: string;
 }
 
@@ -75,15 +75,18 @@ export const api = {
 
 // --- Админ-конфиг (ключи/модели по ролям; пароль в заголовке) ---
 
+type ModelRole = 'narrator' | 'validator' | 'director' | 'fallback';
 export interface AdminConfigView {
-	keysSet: Record<'default' | 'narrator' | 'validator' | 'director' | 'fallback', boolean>;
-	models: Record<'narrator' | 'validator' | 'director' | 'fallback', string>;
-	options: Record<'narrator' | 'validator' | 'director' | 'fallback', string[]>;
+	keysSet: Record<'default' | ModelRole, boolean>;
+	/** Текущие списки моделей по ролям (первый — основной, далее альтернативы). */
+	models: Record<ModelRole, string[]>;
+	/** Дефолтные списки (для «вернуть к дефолту»). */
+	defaults: Record<ModelRole, string[]>;
 	overridden: { keys: string[]; models: string[] };
 }
 export interface AdminConfigPatch {
-	keys?: Partial<Record<'default' | 'narrator' | 'validator' | 'director' | 'fallback', string>>;
-	models?: Partial<Record<'narrator' | 'validator' | 'director' | 'fallback', string>>;
+	keys?: Partial<Record<'default' | ModelRole, string>>;
+	models?: Partial<Record<ModelRole, string[]>>;
 }
 
 export const adminApi = {

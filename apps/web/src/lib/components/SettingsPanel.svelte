@@ -46,11 +46,12 @@
 	let kFallback = $state('');
 
 	function fillModels(v: AdminConfigView) {
-		mNarrator = v.models.narrator;
-		mValidator = v.models.validator;
-		mDirector = v.models.director;
-		mFallback = v.models.fallback;
+		mNarrator = v.models.narrator.join('\n');
+		mValidator = v.models.validator.join('\n');
+		mDirector = v.models.director.join('\n');
+		mFallback = v.models.fallback.join('\n');
 	}
+	const lines = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
 
 	async function adminToggle() {
 		adminOpen = !adminOpen;
@@ -76,7 +77,7 @@
 		adminMsg = '';
 		adminBusy = true;
 		const patch: AdminConfigPatch = {
-			models: { narrator: mNarrator, validator: mValidator, director: mDirector, fallback: mFallback },
+			models: { narrator: lines(mNarrator), validator: lines(mValidator), director: lines(mDirector), fallback: lines(mFallback) },
 			keys: {}
 		};
 		if (kDefault.trim()) patch.keys!.default = kDefault.trim();
@@ -166,24 +167,26 @@
 			{:else}
 				<div class="admin-block">
 					<div class="block-title mono">Модели по ролям</div>
-					<p class="hint">Выбери из списка (основная/альтернативная) или впиши свой id. Пусто — серверный дефолт.</p>
-					{#snippet modelRow(label: string, role: 'narrator' | 'validator' | 'director' | 'fallback', value: string, set: (v: string) => void)}
-						{@const opts = [...new Set([...(adminView!.options[role] ?? []), ...(value && !adminView!.options[role]?.includes(value) ? [value] : [])])]}
-						<div class="arow model">
-							<span>{label}</span>
-							<div class="model-ctl">
-								<select class="mono" value={opts.includes(value) ? value : '__custom__'} onchange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; if (v !== '__custom__') set(v); }}>
-									{#each opts as id, i (id)}<option value={id}>{id}{i === 0 ? ' — основная' : i === 1 ? ' — альт' : ''}</option>{/each}
-									<option value="__custom__">свой id…</option>
-								</select>
-								<input class="mono" placeholder="свой id (необязательно)" value={value} oninput={(e) => set((e.currentTarget as HTMLInputElement).value)} />
+					<p class="hint">По одному id OpenRouter в строке: <b>первая — основная</b>, далее альтернативы по порядку (авто-фолбэк при отказе/лимите). Пусто — вернуть к дефолту.</p>
+					{#snippet modelBox(label: string, role: 'narrator' | 'validator' | 'director' | 'fallback', value: string, set: (v: string) => void)}
+						<div class="model-block">
+							<div class="model-head">
+								<span class="ml mono">{label}</span>
+								<button class="reset" title="Подставить дефолтный список" onclick={() => set(adminView!.defaults[role].join('\n'))}>↺ дефолт</button>
 							</div>
+							<textarea
+								class="mono"
+								rows={Math.max(2, value.split('\n').length)}
+								placeholder="vendor/model-id"
+								value={value}
+								oninput={(e) => set((e.currentTarget as HTMLTextAreaElement).value)}
+							></textarea>
 						</div>
 					{/snippet}
-					{@render modelRow('Ведущий', 'narrator', mNarrator, (v) => (mNarrator = v))}
-					{@render modelRow('Валидатор', 'validator', mValidator, (v) => (mValidator = v))}
-					{@render modelRow('Режиссёр', 'director', mDirector, (v) => (mDirector = v))}
-					{@render modelRow('Фоллбэк', 'fallback', mFallback, (v) => (mFallback = v))}
+					{@render modelBox('Ведущий', 'narrator', mNarrator, (v) => (mNarrator = v))}
+					{@render modelBox('Валидатор', 'validator', mValidator, (v) => (mValidator = v))}
+					{@render modelBox('Режиссёр', 'director', mDirector, (v) => (mDirector = v))}
+					{@render modelBox('Фоллбэк (тёмные сцены)', 'fallback', mFallback, (v) => (mFallback = v))}
 				</div>
 
 				<div class="admin-block">
@@ -257,10 +260,12 @@
 	.arow { display: flex; align-items: center; gap: .6rem; margin-bottom: .4rem; }
 	.arow > span { flex: 0 0 9rem; font-size: .82em; color: var(--text-dim); }
 	.arow input { flex: 1; min-width: 0; }
-	.arow.model { align-items: flex-start; }
-	.model-ctl { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .3rem; }
-	.model-ctl select { width: 100%; font-size: .82em; }
-	.model-ctl input { font-size: .82em; }
+	.model-block { margin-bottom: .6rem; }
+	.model-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .2rem; }
+	.ml { font-size: .8em; color: var(--text-dim); }
+	.reset { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; font-size: .68rem; padding: .1rem .5rem; }
+	.reset:hover { color: var(--accent); border-color: var(--accent); }
+	.model-block textarea { width: 100%; resize: vertical; background: var(--field, var(--surface-raised)); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: .4rem .55rem; font-size: .76em; line-height: 1.55; }
 	.clear { background: none; border: 1px solid var(--border); color: var(--danger); border-radius: 6px; padding: .2rem .5rem; flex-shrink: 0; }
 	.admin-actions { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin-top: .6rem; }
 	.save { background: var(--accent); color: var(--on-accent); border: none; border-radius: 6px; padding: .5rem 1rem; }

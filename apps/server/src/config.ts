@@ -24,20 +24,18 @@ export interface ServerConfig {
 export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 /**
- * Конфиг моделей: дефолты движка + переопределения из env по ролям.
- *   OPENROUTER_MODEL_NARRATOR / _VALIDATOR / _DIRECTOR / _FALLBACK — основной id
- *   OPENROUTER_MODEL_NARRATOR_ALT и т.п. — альтернатива (опц.)
- * Так можно поставить платного Ведущего, не трогая код.
+ * Конфиг моделей: дефолты движка + опц. переопределение основной модели из env
+ * (OPENROUTER_MODEL_NARRATOR / _VALIDATOR / _DIRECTOR / _FALLBACK). Полные списки
+ * (дефолт + альтернативы) редактируются из админки и хранятся в БД.
  */
 export function buildModels(): AppModelConfig {
 	const cfg = structuredClone(DEFAULT_MODEL_CONFIG);
-	const set = (role: keyof AppModelConfig['models'], model?: string, alt?: string) => {
+	const set = (role: keyof AppModelConfig['models'], model?: string) => {
 		if (model) cfg.models[role].model = model;
-		if (alt) cfg.models[role].alternative = alt;
 	};
-	set('narrator', process.env.OPENROUTER_MODEL_NARRATOR, process.env.OPENROUTER_MODEL_NARRATOR_ALT);
-	set('validator', process.env.OPENROUTER_MODEL_VALIDATOR, process.env.OPENROUTER_MODEL_VALIDATOR_ALT);
-	set('director', process.env.OPENROUTER_MODEL_DIRECTOR, process.env.OPENROUTER_MODEL_DIRECTOR_ALT);
+	set('narrator', process.env.OPENROUTER_MODEL_NARRATOR);
+	set('validator', process.env.OPENROUTER_MODEL_VALIDATOR);
+	set('director', process.env.OPENROUTER_MODEL_DIRECTOR);
 	set('fallback_narrator', process.env.OPENROUTER_MODEL_FALLBACK);
 	return cfg;
 }
@@ -79,10 +77,24 @@ export function keyForRole(cfg: ServerConfig, role: LlmRole, preferFallback = fa
 type KeyRole = 'default' | 'narrator' | 'validator' | 'director' | 'fallback';
 type ModelRoleKey = 'narrator' | 'validator' | 'director' | 'fallback';
 
-/** Что админ может переопределить и сохранить в БД (поверх env). */
+/** Что админ может переопределить и сохранить в БД (поверх env).
+ *  models[role] — список id (первый = основной, далее альтернативы по порядку). */
 export interface ConfigOverrides {
 	keys?: Partial<Record<KeyRole, string>>;
-	models?: Partial<Record<ModelRoleKey, string>>;
+	models?: Partial<Record<ModelRoleKey, string[]>>;
+}
+
+const MODEL_ROLE_MAP: Record<ModelRoleKey, 'narrator' | 'validator' | 'director' | 'fallback_narrator'> = {
+	narrator: 'narrator',
+	validator: 'validator',
+	director: 'director',
+	fallback: 'fallback_narrator'
+};
+
+/** Нормализовать список моделей (строка или массив → массив непустых строк). */
+export function toModelList(v: unknown): string[] {
+	const arr = Array.isArray(v) ? v : typeof v === 'string' ? [v] : [];
+	return arr.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).map((s) => s.trim());
 }
 
 export interface ConfigBaseline {
@@ -105,17 +117,22 @@ export function applyOverrides(cfg: ServerConfig, base: ConfigBaseline, ov: Conf
 	cfg.keys = keys;
 
 	const models = structuredClone(base.models);
-	if (ov.models?.narrator) models.models.narrator.model = ov.models.narrator;
-	if (ov.models?.validator) models.models.validator.model = ov.models.validator;
-	if (ov.models?.director) models.models.director.model = ov.models.director;
-	if (ov.models?.fallback) models.models.fallback_narrator.model = ov.models.fallback;
+	for (const role of ['narrator', 'validator', 'director', 'fallback'] as ModelRoleKey[]) {
+		const list = toModelList(ov.models?.[role]);
+		if (list.length) {
+			const m = models.models[MODEL_ROLE_MAP[role]];
+			m.model = list[0]!;
+			m.alternatives = list.slice(1);
+		}
+	}
 	cfg.models = models;
 }
 
 /** Безопасная для клиента картина конфига: какие ключи заданы (без значений) + модели. */
 export function publicConfigView(cfg: ServerConfig, ov: ConfigOverrides) {
 	const E = DEFAULT_MODEL_CONFIG.models;
-	const opts = (...ids: (string | undefined)[]) => [...new Set(ids.filter((x): x is string => Boolean(x)))];
+	const list = (m: { model: string; alternatives?: string[] }) => [m.model, ...(m.alternatives ?? [])];
+	const M = cfg.models.models;
 	return {
 		keysSet: {
 			default: Boolean(cfg.keys.default),
@@ -124,23 +141,23 @@ export function publicConfigView(cfg: ServerConfig, ov: ConfigOverrides) {
 			director: Boolean(cfg.keys.director),
 			fallback: Boolean(cfg.keys.fallback)
 		},
+		// Текущие списки по ролям (первый — основной, далее альтернативы).
 		models: {
-			narrator: cfg.models.models.narrator.model,
-			validator: cfg.models.models.validator.model,
-			director: cfg.models.models.director.model,
-			fallback: cfg.models.models.fallback_narrator.model
+			narrator: list(M.narrator),
+			validator: list(M.validator),
+			director: list(M.director),
+			fallback: list(M.fallback_narrator)
 		},
-		// Готовые варианты по ролям (основная + альтернативная из дефолтов движка) — для выпадающих списков.
-		options: {
-			narrator: opts(E.narrator.model, E.narrator.alternative),
-			validator: opts(E.validator.model, E.validator.alternative),
-			director: opts(E.director.model, E.director.alternative),
-			fallback: opts(E.fallback_narrator.model, E.fallback_narrator.alternative)
+		// Дефолтные списки (для кнопки «вернуть к дефолту»).
+		defaults: {
+			narrator: list(E.narrator),
+			validator: list(E.validator),
+			director: list(E.director),
+			fallback: list(E.fallback_narrator)
 		},
-		// какие именно поля заданы переопределением (чтобы UI показал «из админки» vs «из env»)
 		overridden: {
 			keys: Object.keys(ov.keys ?? {}).filter((k) => (ov.keys as Record<string, string>)[k]),
-			models: Object.keys(ov.models ?? {}).filter((k) => (ov.models as Record<string, string>)[k])
+			models: Object.keys(ov.models ?? {}).filter((k) => toModelList((ov.models as Record<string, unknown>)[k]).length)
 		}
 	};
 }

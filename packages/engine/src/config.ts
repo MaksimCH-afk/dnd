@@ -24,8 +24,8 @@ export interface RetryPolicy {
 export interface RoleModelConfig {
 	/** OpenRouter model ID (для embeddings — идентификатор локальной модели). */
 	model: string;
-	/** Альтернатива/ручной переключатель (богаче/тяжелее модель). */
-	alternative?: string;
+	/** Альтернативы (по порядку): ручной переключатель + авто-фолбэк при отказе. */
+	alternatives?: string[];
 	temperature?: number;
 	/** Лимит токенов ответа. */
 	maxTokens?: number;
@@ -43,39 +43,42 @@ export interface AppModelConfig {
 }
 
 /**
- * Дефолты из ТЗ раздела 6. Free-модели OpenRouter, где возможно.
- * Контексты: Qwen 262K, Super/Ultra 1M, Hermes 131K, Venice 33K.
+ * Дефолты по ролям (платные модели OpenRouter, выбор игрока). Первый — основной,
+ * далее альтернативы по порядку (ручной переключатель + авто-фолбэк). Меняются из
+ * админки и сохраняются в БД.
  */
 export const DEFAULT_MODEL_CONFIG: AppModelConfig = {
 	models: {
 		narrator: {
-			model: 'qwen/qwen3-next-80b-a3b-instruct:free',
-			alternative: 'nousresearch/hermes-3-llama-3.1-405b:free',
+			model: 'qwen/qwen3.6-plus',
+			alternatives: ['google/gemini-3.1-pro-preview', 'anthropic/claude-sonnet-4.6'],
 			temperature: 0.9,
 			maxTokens: 2048
 		},
 		validator: {
-			model: 'google/gemma-4-31b-it:free',
-			alternative: 'openai/gpt-oss-120b:free',
+			model: 'deepseek/deepseek-v3.2',
+			alternatives: ['xiaomi/mimo-v2-flash'],
 			temperature: 0.1,
 			maxTokens: 1024
 		},
 		director: {
-			model: 'nvidia/nemotron-3-super-120b-a12b:free',
-			alternative: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+			// Редкий вызов (раз в ~6 ходов, между арками) — нужен сильный ризонинг/длинный контекст.
+			model: 'google/gemini-3.1-pro-preview',
+			alternatives: ['anthropic/claude-sonnet-4.6'],
 			temperature: 0.8,
 			maxTokens: 1536
 		},
 		fallback_narrator: {
-			// Профиль для тёмных сцен при отказе основной модели. Контекст 33K.
-			model: 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free',
+			// Тёмные сцены при отказе/смягчении основного нарратора.
+			model: 'deepseek/deepseek-v3.2',
+			alternatives: ['deepseek/deepseek-v4-flash'],
 			temperature: 0.9,
 			maxTokens: 1536
 		},
 		embeddings: {
 			// Локальный эмбеддер (transformers.js), сменный. Не идёт через прокси.
 			model: 'bge-m3',
-			alternative: 'multilingual-e5-large'
+			alternatives: ['multilingual-e5-large']
 		}
 	},
 	retry: {

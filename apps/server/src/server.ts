@@ -5,6 +5,7 @@ import {
 	snapshotBaseline,
 	applyOverrides,
 	publicConfigView,
+	toModelList,
 	type ConfigOverrides
 } from './config';
 import { Db } from './db';
@@ -68,9 +69,9 @@ const server = createServer((req, res) => {
 async function route(req: IncomingMessage, res: ServerResponse, path: string): Promise<void> {
 	// GET /health
 	if (req.method === 'GET' && path === '/health') {
-		const models: Record<string, { model: string; alternative?: string }> = {};
+		const models: Record<string, { model: string; alternatives?: string[] }> = {};
 		for (const [role, m] of Object.entries(cfg.models.models)) {
-			models[role] = { model: m.model, ...(m.alternative ? { alternative: m.alternative } : {}) };
+			models[role] = { model: m.model, ...(m.alternatives?.length ? { alternatives: m.alternatives } : {}) };
 		}
 		json(res, 200, {
 			ok: true,
@@ -199,7 +200,7 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 				return;
 			}
 			const body = await readJson<ConfigOverrides>(req);
-			// merge по полям: непустая строка — задать, "" — очистить (вернуть к env), отсутствует — не трогать
+			// merge по полям: задано — заменить, пусто ("" / []) — очистить (вернуть к дефолту), отсутствует — не трогать
 			const next: ConfigOverrides = {
 				keys: { ...(overrides.keys ?? {}) },
 				models: { ...(overrides.models ?? {}) }
@@ -210,9 +211,9 @@ async function route(req: IncomingMessage, res: ServerResponse, path: string): P
 				else delete (next.keys as Record<string, string>)[k];
 			}
 			for (const [k, v] of Object.entries(body.models ?? {})) {
-				if (typeof v !== 'string') continue;
-				if (v.trim()) (next.models as Record<string, string>)[k] = v.trim();
-				else delete (next.models as Record<string, string>)[k];
+				const listV = toModelList(v); // принимает строку или массив
+				if (listV.length) (next.models as Record<string, string[]>)[k] = listV;
+				else delete (next.models as Record<string, string[]>)[k];
 			}
 			overrides = next;
 			storedConfig.overrides = overrides;

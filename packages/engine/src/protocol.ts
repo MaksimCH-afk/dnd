@@ -71,6 +71,6 @@ export interface HealthResponse {
 	ok: boolean;
 	/** Есть ли опциональный сид-ключ в env прокси (ключ обычно приходит из UI). */
 	hasEnvKey: boolean;
-	models: Record<string, { model: string; alternative?: string }>;
+	models: Record<string, { model: string; alternatives?: string[] }>;
 	version: string;
 }
