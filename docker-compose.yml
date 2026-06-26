@@ -3,6 +3,8 @@
 # Запуск:  cp apps/server/.env.example .env  (вписать OPENROUTER_API_KEY, CADDY_DOMAIN)
 #          docker compose up -d --build
 # После старта игра доступна по https://<домен>/ (Caddy сам берёт сертификат Let's Encrypt).
+# Бэкап БД (§15, единственный источник истины): deploy/backup.sh — pg_dump с ротацией;
+#          поставить в cron (пример внутри скрипта). Без бэкапа сбой диска = потеря прогресса.
 services:
   db:
     image: pgvector/pgvector:pg16
